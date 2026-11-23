@@ -1,0 +1,121 @@
+name: CI Smoke Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Nilai khusus CI. Bukan secret produksi dan tidak dipakai di luar runner.
+      SECRET_KEY: ci-secret-key-yang-cukup-panjang-untuk-hs256
+      DATABASE_URL: sqlite:///./ci-canteencare.db
+      # Sengaja menunjuk ke file yang tidak ada agar Firebase no-op tanpa secret.
+      FIREBASE_CREDENTIALS: ci-no-firebase.json
+      BCRYPT_ROUNDS: "4"
+      UPLOAD_DIR: ci-uploads
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run backend tests
+        run: python -m pytest -q
+
+      - name: Start backend and verify HTTP + database
+        run: |
+          set -euo pipefail
+
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/openapi.json > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Backend tidak siap dalam 30 detik."
+            cat uvicorn.log
+            exit 1
+          fi
+
+          # Endpoint ini membaca database, jadi sekaligus membuktikan seed berhasil.
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/vendors \
+            | python -c 'import json, sys; data = json.load(sys.stdin); assert data, "seed vendor kosong"; print(f"OK: {len(data)} vendor dari seed")'
+
+          if grep -q "Firebase siap" uvicorn.log; then
+            echo "Firebase aktif padahal CI tidak memakai Firebase."
+            exit 1
+          fi
+
+          grep -q "Notifikasi dinonaktifkan" uvicorn.log
+          echo "Backend up, database seed terbaca, dan Firebase nonaktif."
+
+  android:
+    name: Android build smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Run Android unit tests
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: Verify APK exists
+        run: test -f app/build/outputs/apk/debug/app-debug.apk
