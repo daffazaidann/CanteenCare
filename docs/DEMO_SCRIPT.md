@@ -13,7 +13,7 @@ Target durasi sekitar 8–10 menit. Urutan ini menunjukkan ketiga peran (Admin, 
    - **Perangkat A (pembeli):** HP fisik atau emulator pertama, login Daffa.
    - **Perangkat B (penjual/admin):** emulator kedua, login Gapura, lalu nanti Admin.
 
-   Kalau hanya ada satu perangkat, notifikasi hanya masuk ke akun yang terakhir login. Bagian notifikasi bisa ditunjukkan dengan login ulang sebagai Daffa lalu membuka Riwayat.
+   Kalau hanya ada satu perangkat, notifikasi hanya masuk ke akun yang terakhir login. Bagian notifikasi bisa ditunjukkan dengan login ulang sebagai Daffa lalu membuka tab Pesanan.
 5. **Atur tampilan:** di semua perangkat, aktifkan izin notifikasi dan kosongkan keranjang.
 6. **Atur perekaman:** rekam layar 1920×1080. Tampilkan perangkat di tengah dengan latar polos, dan tutup notifikasi aplikasi lain.
 
@@ -48,24 +48,27 @@ Target durasi sekitar 8–10 menit. Urutan ini menunjukkan ketiga peran (Admin, 
 4. Pilih **QRIS** dan tunjukkan QR simulasi. Isi catatan "Sambal dipisah".
 5. Tekan **Pesan Sekarang**. Detail pesanan tampil dengan status **Menunggu**. Biarkan layar ini terbuka.
 
-### 5. Penjual memproses pesanan (±1,5 menit) — Perangkat B
-1. Notifikasi **"Pesanan Baru"** muncul di perangkat penjual. Tab Menunggu menampilkan badge.
+### 5. Penjual memproses pesanan sampai selesai (±2 menit) — Perangkat B
+1. Notifikasi **"Pesanan Baru"** muncul di perangkat penjual. Tab **Masuk** menampilkan badge.
 2. Buka pesanan. Tunjukkan nama pembeli, catatan, item, dan total.
-3. Tekan **Konfirmasi**. Muncul pesan "Pesanan dikonfirmasi. Stok sudah dikurangi."
-4. Buka **Menu & Stok** dan tunjukkan stok Mie Ayam Solo berkurang.
-- **Narasi:** "Stok baru berkurang saat penjual mengonfirmasi, dan dicek ulang di server dalam satu transaksi."
+3. Tekan **Terima**. Muncul pesan "Pesanan diterima dan sedang dimasak. Stok sudah dikurangi." Pesanan pindah ke tab **Dimasak**.
+4. Buka **Menu & Stok** dan tunjukkan stok Mie Ayam Solo berkurang. Kembali ke Pesanan Masuk.
+5. Buka pesanan di tab **Dimasak**, lalu tekan **Tandai Siap Diambil**. Pesanan pindah ke tab **Siap Diambil**.
+6. Tekan **Selesaikan Pesanan** dan setujui dialog. Pesanan pindah ke tab **Riwayat**.
+- **Narasi:** "Stok baru berkurang saat penjual menerima pesanan, dan dicek ulang di server dalam satu transaksi. Setelah itu pesanan mengalir dari Dimasak, Siap Diambil, sampai Selesai."
 
-### 6. Pembeli menerima notifikasi (±45 detik) — Perangkat A
-1. Notifikasi **"Pesanan Dikonfirmasi … Silakan ambil di Dapur Gapura"** muncul. Status di layar detail juga berubah sendiri dalam ≤10 detik.
-2. Kembali ke Home, ketuk notifikasi tersebut, dan detail pesanan terbuka.
-3. Buka **Riwayat** dan tunjukkan chip status serta filter **Dikonfirmasi** / **Ditolak** (ada contoh pesanan ditolak dari seed).
+### 6. Pembeli memantau status (±1 menit) — Perangkat A
+1. Notifikasi **"Pesanan Sedang Dimasak …"** muncul. Status di layar detail berubah sendiri dalam ≤10 detik dan timeline menunjukkan tahap pertama.
+2. Saat penjual menandai siap, notifikasi **"Pesanan Siap Diambil …"** muncul dan timeline maju ke tahap Siap Diambil.
+3. Saat pesanan diselesaikan, notifikasi **"Pesanan Selesai. Terima kasih!"** muncul.
+4. Buka tab **Pesanan**. Tunjukkan tab **Dalam Proses** (masih ada contoh pesanan hari ini dari seed) dan tab **Riwayat** berisi pesanan **Selesai** yang baru diselesaikan serta contoh **Ditolak** dari seed. Tunjukkan filter **Selesai** / **Ditolak**.
 
 ### 7. Fungsi 3 — Gizi Hari Ini (±1,5 menit) — Perangkat A
-1. Buka tab **Gizi**. Tampil tanggal hari ini (WIB), jumlah pesanan dikonfirmasi, dan enam bar berwarna.
+1. Buka tab **Gizi**. Tampil tanggal hari ini (WIB), jumlah pesanan yang sudah diterima, dan enam bar berwarna.
 2. Jelaskan satu baris GOAL (kalori: "Sisa … kkal", kuning **Kurang**) dan satu baris LIMIT (garam: **Mendekati batas** atau **Melebihi batas**).
 3. Tekan **Ubah Target Gizi** dan ubah target kalori menjadi lebih kecil, misalnya 1800, lalu simpan. Tunjukkan perubahan status atau warna.
 4. (Opsional) Isi 0 di salah satu kolom target untuk menunjukkan validasi, lalu tekan **Kembalikan ke default** dan simpan.
-- **Narasi:** "Fungsi 3 menjumlahkan gizi semua pesanan dikonfirmasi hari ini, lalu membandingkannya dengan target. Kalori, karbohidrat, dan protein adalah target yang ingin dicapai, sedangkan lemak, garam, dan gula adalah batas maksimal."
+- **Narasi:** "Fungsi 3 menjumlahkan gizi semua pesanan yang sudah diterima penjual hari ini, lalu membandingkannya dengan target. Kalori, karbohidrat, dan protein adalah target yang ingin dicapai, sedangkan lemak, garam, dan gula adalah batas maksimal."
 
 ### 8. Penolakan pesanan (opsional, ±45 detik)
 1. Daffa memesan 1 Tahu Telur.
@@ -73,7 +76,7 @@ Target durasi sekitar 8–10 menit. Urutan ini menunjukkan ketiga peran (Admin, 
 3. Daffa menerima notifikasi "… ditolak: Bahan habis". Tunjukkan bahwa Gizi Hari Ini tidak berubah, karena pesanan ditolak tidak dihitung.
 
 ### 9. Penutup (±30 detik)
-- Tampilkan sekilas hasil tes: `pytest` (69 passed) dan `gradlew testDebugUnitTest` (BUILD SUCCESSFUL).
+- Tampilkan sekilas hasil tes: `pytest` (72 passed) dan `gradlew testDebugUnitTest` (BUILD SUCCESSFUL).
 - **Narasi:** "Logika inti diuji dengan unit test, termasuk contoh 63,7% kurang dan 152% melebihi batas."
 
 ## Tips Perekaman

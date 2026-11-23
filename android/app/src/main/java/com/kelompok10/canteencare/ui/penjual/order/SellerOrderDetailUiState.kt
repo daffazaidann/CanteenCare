@@ -14,6 +14,7 @@ data class SellerOrderDetailUiState(
     val isProcessing: Boolean = false,
     val showRejectDialog: Boolean = false,
     val rejectReason: String = "",
+    val showCompleteDialog: Boolean = false,
     /** Pesan singkat untuk snackbar, misalnya hasil konfirmasi atau error stok. */
     val message: String? = null,
 )

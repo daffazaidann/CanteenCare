@@ -39,7 +39,7 @@ Perintah di atas memanggil Python dari venv secara langsung, jadi tidak perlu ak
 3. Klik tombol **Authorize** di kanan atas, tempel token, lalu **Authorize**.
 4. Sekarang endpoint lain seperti `GET /api/v1/auth/me` bisa dicoba.
 
-## Walkthrough: pembeli pesan → penjual konfirmasi → stok berkurang
+## Walkthrough: pembeli pesan → penjual memproses → pesanan selesai
 
 Semua dari Swagger. Tip: buka dua tab Swagger, satu untuk pembeli dan satu untuk penjual, supaya tidak perlu ganti token.
 
@@ -54,18 +54,22 @@ Semua dari Swagger. Tip: buka dua tab Swagger, satu untuk pembeli dan satu untuk
 5. `GET /api/v1/menus/1` → stok masih 25, karena stok baru berkurang saat penjual mengonfirmasi.
 6. Klik Authorize → Logout, lalu login sebagai penjual `gapura@canteencare.id` / `penjual123` dan Authorize.
 7. `GET /api/v1/seller/orders?status=MENUNGGU` → pesanan tadi muncul.
-8. `POST /api/v1/seller/orders/{order_id}/confirm` → status `DIKONFIRMASI` dan `resolved_at` terisi.
+8. `POST /api/v1/seller/orders/{order_id}/confirm` → status `SEDANG_DIMASAK`, `resolved_at` masih `null`.
 9. `GET /api/v1/seller/menus` → stok Mie Ayam Solo sekarang 23.
-10. Jalankan confirm sekali lagi → 409 `INVALID_ORDER_STATE`, karena status akhir tidak bisa diubah.
-11. Login lagi sebagai Daffa, lalu `GET /api/v1/orders/{order_id}` → status `DIKONFIRMASI`.
+10. Jalankan confirm sekali lagi → 409 `INVALID_ORDER_STATE`, karena pesanan sudah melewati tahap MENUNGGU.
+11. `POST /api/v1/seller/orders/{order_id}/ready` → status `SIAP_DIAMBIL`.
+12. `POST /api/v1/seller/orders/{order_id}/complete` → status `SELESAI` dan `resolved_at` terisi.
+13. Login lagi sebagai Daffa, lalu `GET /api/v1/orders/{order_id}` → status `SELESAI`.
 
 ## Notifikasi (FCM)
 
 Taruh kunci service account Firebase di `backend/firebase-service-account.json`. Cara mendapatkannya ada di README utama, bagian Setup Firebase. Tanpa file ini server tetap berjalan, hanya mencatat peringatan `Notifikasi dinonaktifkan`.
 
-Notifikasi dikirim otomatis pada tiga kejadian berikut:
+Notifikasi dikirim otomatis pada lima kejadian berikut:
 - **Pesanan baru:** dikirim ke penjual, dengan data `{"type": "NEW_ORDER", "order_id": "..."}`.
-- **Pesanan dikonfirmasi:** dikirim ke pembeli, dengan data `{"type": "ORDER_STATUS", "order_id": "..."}`.
+- **Pesanan diterima / sedang dimasak:** dikirim ke pembeli, dengan data `{"type": "ORDER_STATUS", "order_id": "..."}`.
+- **Pesanan siap diambil:** dikirim ke pembeli, dengan data `{"type": "ORDER_STATUS", "order_id": "..."}`.
+- **Pesanan selesai:** dikirim ke pembeli, dengan data `{"type": "ORDER_STATUS", "order_id": "..."}`.
 - **Pesanan ditolak:** dikirim ke pembeli beserta alasannya, dengan data `{"type": "ORDER_STATUS", "order_id": "..."}`.
 
 **Notifikasi kadang terkirim, kadang tidak?** Kemungkinan ada dua server yang berjalan di port 8000, misalnya terminal lama yang lupa ditutup. Cek dengan `netstat -ano | findstr :8000`. Jika ada lebih dari satu PID yang `LISTENING`, tutup terminal server lama, atau jalankan `taskkill /PID <pid> /T /F` untuk PID yang lama.

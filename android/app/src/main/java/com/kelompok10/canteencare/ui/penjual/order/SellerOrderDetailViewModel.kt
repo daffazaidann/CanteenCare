@@ -49,9 +49,43 @@ class SellerOrderDetailViewModel @Inject constructor(
             when (val result = sellerRepository.confirmOrder(orderId)) {
                 is ApiResult.Success -> {
                     showOrder(result.data)
-                    _uiState.update { it.copy(message = "Pesanan dikonfirmasi. Stok sudah dikurangi.") }
+                    _uiState.update { it.copy(message = "Pesanan diterima dan sedang dimasak. Stok sudah dikurangi.") }
                 }
                 // Contoh: "Stok Mie Ayam Solo tidak mencukupi, tersisa 2."
+                is ApiResult.Error -> _uiState.update { it.copy(isProcessing = false, message = result.message) }
+            }
+        }
+    }
+
+    /** SEDANG_DIMASAK → SIAP_DIAMBIL. Pembeli mendapat notifikasi untuk mengambil pesanan. */
+    fun markReady() {
+        if (_uiState.value.isProcessing) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            when (val result = sellerRepository.markOrderReady(orderId)) {
+                is ApiResult.Success -> {
+                    showOrder(result.data)
+                    _uiState.update { it.copy(message = "Pesanan siap diambil. Pembeli akan diberi tahu.") }
+                }
+                is ApiResult.Error -> _uiState.update { it.copy(isProcessing = false, message = result.message) }
+            }
+        }
+    }
+
+    fun onCompleteClick() = _uiState.update { it.copy(showCompleteDialog = true) }
+
+    fun onDismissCompleteDialog() = _uiState.update { it.copy(showCompleteDialog = false) }
+
+    /** SIAP_DIAMBIL → SELESAI setelah pembeli mengambil pesanan. */
+    fun complete() {
+        if (_uiState.value.isProcessing) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true, showCompleteDialog = false) }
+            when (val result = sellerRepository.completeOrder(orderId)) {
+                is ApiResult.Success -> {
+                    showOrder(result.data)
+                    _uiState.update { it.copy(message = "Pesanan selesai dan dipindahkan ke riwayat.") }
+                }
                 is ApiResult.Error -> _uiState.update { it.copy(isProcessing = false, message = result.message) }
             }
         }

@@ -137,11 +137,13 @@ def test_seed_creates_sample_orders_with_recomputed_totals(client):
     with SessionLocal() as db:
         orders = db.scalars(select(Order).order_by(Order.created_at)).all()
 
-    assert [o.status for o in orders] == [OrderStatus.DITOLAK, OrderStatus.DIKONFIRMASI]
-    confirmed = orders[1]
+    assert [o.status for o in orders] == [
+        OrderStatus.DITOLAK, OrderStatus.SELESAI, OrderStatus.SIAP_DIAMBIL
+    ]
+    ready = orders[2]
     # 1 Mie Ayam Solo + 2 Es Teh Manis
-    assert confirmed.total_price == 20000 + 2 * 4000
-    assert confirmed.total_calories == 650 + 2 * 120
-    assert confirmed.total_sugar == 6 + 2 * 30
-    assert confirmed.order_number.startswith("CC-")
+    assert ready.total_price == 20000 + 2 * 4000
+    assert ready.total_calories == 650 + 2 * 120
+    assert ready.total_sugar == 6 + 2 * 30
+    assert ready.order_number.startswith("CC-")
     assert orders[0].rejection_reason == "Bahan habis"

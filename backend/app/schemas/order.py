@@ -61,11 +61,14 @@ class OrderOut(BaseModel):
 
     @classmethod
     def from_order(cls, order: Order) -> "OrderOut":
+        # DIKONFIRMASI adalah status lama sebelum alur Dalam Proses. Data lama tetap
+        # ditampilkan sebagai SEDANG_DIMASAK supaya aplikasi tidak error saat masa transisi.
+        status = OrderStatus.SEDANG_DIMASAK if order.status == "DIKONFIRMASI" else OrderStatus(order.status)
         return cls(
             id=order.id, order_number=order.order_number,
             buyer_id=order.buyer_id, buyer_name=order.buyer.full_name,
             vendor_id=order.vendor_id, vendor_name=order.vendor.name,
-            status=OrderStatus(order.status), payment_method=PaymentMethod(order.payment_method),
+            status=status, payment_method=PaymentMethod(order.payment_method),
             total_price=order.total_price,
             total_nutrition=NutritionValues(**{f: getattr(order, f"total_{f}") for f in NUTRIENT_FIELDS}),
             note=order.note, rejection_reason=order.rejection_reason,

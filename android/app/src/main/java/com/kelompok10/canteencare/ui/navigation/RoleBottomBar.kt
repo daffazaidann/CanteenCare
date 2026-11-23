@@ -27,7 +27,7 @@ fun tabsFor(role: Role): List<BottomTab> = when (role) {
     Role.PEMBELI -> listOf(
         BottomTab(Routes.HOME, "Beranda", Icons.Filled.Home),
         BottomTab(Routes.NUTRITION, "Gizi", Icons.Filled.MonitorHeart),
-        BottomTab(Routes.HISTORY, "Riwayat", Icons.AutoMirrored.Filled.ReceiptLong),
+        BottomTab(Routes.HISTORY, "Pesanan", Icons.AutoMirrored.Filled.ReceiptLong),
         BottomTab(Routes.PROFILE, "Profil", Icons.Filled.Person),
     )
     Role.PENJUAL -> listOf(

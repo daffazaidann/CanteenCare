@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app import models  # noqa: F401  (memastikan semua tabel terdaftar di Base.metadata)
 from app.core.errors import register_error_handlers
@@ -17,10 +18,26 @@ API_PREFIX = "/api/v1"
 logging.basicConfig(level=logging.INFO)
 
 
+def migrate_legacy_order_statuses() -> None:
+    """Ubah data lama DIKONFIRMASI menjadi SEDANG_DIMASAK.
+
+    Status DIKONFIRMASI dipakai sebelum alur Dalam Proses diperkenalkan. Migrasi ini
+    menjaga database demo lama tetap bisa dibuka tanpa perlu reset manual.
+    """
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE orders SET status = 'SEDANG_DIMASAK', resolved_at = NULL "
+                "WHERE status = 'DIKONFIRMASI'"
+            )
+        )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    # Saat server menyala: buat tabel jika belum ada, lalu isi data demo jika database kosong
+    # Saat server menyala: buat tabel jika belum ada, migrasi status lama, lalu isi data demo.
     Base.metadata.create_all(engine)
+    migrate_legacy_order_statuses()
     with SessionLocal() as db:
         seed_if_empty(db)
     # Cek kredensial Firebase sejak awal supaya peringatannya langsung terlihat di log

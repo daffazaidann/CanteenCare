@@ -39,7 +39,7 @@ fun NotificationPermissionRequest(role: Role) {
     val reason = if (role == Role.PENJUAL) {
         "Izinkan notifikasi agar kamu langsung tahu saat ada pesanan baru masuk ke stanmu."
     } else {
-        "Izinkan notifikasi agar kamu langsung tahu saat pesananmu dikonfirmasi atau ditolak penjual."
+        "Izinkan notifikasi agar kamu langsung tahu saat pesananmu diterima, siap diambil, atau ditolak penjual."
     }
 
     AlertDialog(

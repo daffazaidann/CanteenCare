@@ -15,4 +15,5 @@ val OutlineGreen = Color(0xFFB7CDB4)
 // Warna status gizi dan pesanan
 val StatusGreen = Color(0xFF2E7D32)
 val StatusAmber = Color(0xFFF9A825)
+val StatusOrange = Color(0xFFEF6C00)
 val StatusRed = Color(0xFFC62828)

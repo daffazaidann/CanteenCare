@@ -78,7 +78,7 @@ Pembeli picks menus into the cart, the app computes total price = Σ(price × qu
 For every cart item, nutrition per portion × quantity, summed into total order nutrition for all six nutrients. The total updates instantly whenever quantity changes, so the Pembeli knows the nutrition before ordering.
 
 **Fungsi 3 — Pelacakan Asupan Gizi Harian terhadap Target**
-Sum the total nutrition of all of today's **DIKONFIRMASI** orders (date in Asia/Jakarta, WIB), compare with the Pembeli's daily target, and show progress per nutrient with percentage, remaining amount, and a status color.
+Sum the total nutrition of all of today's orders that have been accepted by the seller (**SEDANG_DIMASAK**, **SIAP_DIAMBIL**, or **SELESAI**; date in Asia/Jakarta, WIB), compare with the Pembeli's daily target, and show progress per nutrient with percentage, remaining amount, and a status color.
 
 **Critical rule:** the calculations for Fungsi 1, 2, and 3 must live in **Kotlin on the Android side**, in a pure, unit-tested calculator class used by ViewModels. The backend recomputes order totals independently for integrity, but the app must never just display numbers computed by the server for these functions.
 
@@ -228,14 +228,14 @@ Use exactly these tables and columns. JSON responses use **snake_case**.
 | order_number | str | unique, format `CC-YYYYMMDD-XXXX`, date in WIB, XXXX random uppercase hex |
 | buyer_id | int | FK users.id |
 | vendor_id | int | FK vendors.id |
-| status | str | `MENUNGGU` \| `DIKONFIRMASI` \| `DITOLAK` |
+| status | str | `MENUNGGU` \| `SEDANG_DIMASAK` \| `SIAP_DIAMBIL` \| `SELESAI` \| `DITOLAK` |
 | payment_method | str | `TUNAI` \| `QRIS` (simulated) |
 | total_price | int | |
 | total_calories, total_carbs, total_protein, total_fat, total_salt, total_sugar | float | |
 | note | str | nullable, buyer note to seller |
 | rejection_reason | str | nullable |
 | created_at | datetime | |
-| resolved_at | datetime | nullable, set on confirm or reject |
+| resolved_at | datetime | nullable, set only when the order becomes SELESAI or DITOLAK |
 
 **order_items** — **snapshot** of name, price, and nutrition at order time, so history never changes when menus are edited later
 | column | type |
@@ -322,8 +322,10 @@ Order response: `id, order_number, buyer_id, buyer_name, vendor_id, vendor_name,
 | Method | Path | Description |
 |---|---|---|
 | GET | /seller/orders | Optional `?status=`, newest first |
-| POST | /seller/orders/{id}/confirm | Only from MENUNGGU. Re-check and deduct stock atomically. Set DIKONFIRMASI + resolved_at. Send FCM to buyer |
-| POST | /seller/orders/{id}/reject | Body `reason`. Only from MENUNGGU. Set DITOLAK. Stock untouched. Send FCM to buyer |
+| POST | /seller/orders/{id}/confirm | Only from MENUNGGU. Re-check and deduct stock atomically. Set SEDANG_DIMASAK. Send FCM to buyer |
+| POST | /seller/orders/{id}/ready | Only from SEDANG_DIMASAK. Set SIAP_DIAMBIL. Send FCM to buyer |
+| POST | /seller/orders/{id}/complete | Only from SIAP_DIAMBIL. Set SELESAI + resolved_at. Send FCM to buyer |
+| POST | /seller/orders/{id}/reject | Body `reason`. Only from MENUNGGU. Set DITOLAK + resolved_at. Stock untouched. Send FCM to buyer |
 | GET | /seller/menus | All own menus, any status |
 | POST | /seller/menus | Submit new menu with estimated nutrition. Status PENDING, `verified_by` null |
 | PATCH | /seller/menus/{id}/stock | Body `stock` ≥ 0 |
@@ -364,17 +366,19 @@ Order response: `id, order_number, buyer_id, buyer_name, vendor_id, vendor_name,
 
 ### 7.3 Order state machine
 ```
-MENUNGGU ──confirm──▶ DIKONFIRMASI   stock deducted, counted in buyer's daily nutrition
-    └──────reject───▶ DITOLAK        stock unchanged, not counted
+MENUNGGU ──confirm──▶ SEDANG_DIMASAK ──ready──▶ SIAP_DIAMBIL ──complete──▶ SELESAI
+    └──────reject───▶ DITOLAK
 ```
-DIKONFIRMASI and DITOLAK are final. Any further transition → 409 `INVALID_ORDER_STATE`.
+`SELESAI` and `DITOLAK` are final. Any transition outside the arrows above → 409 `INVALID_ORDER_STATE`.
 Confirm re-validates stock for all items in one transaction; if any is short, nothing changes and return 409.
+Stock is deducted at confirm. `resolved_at` is set only on `SELESAI` or `DITOLAK`.
+Daily nutrition counts `SEDANG_DIMASAK`, `SIAP_DIAMBIL`, and `SELESAI`; it does not count `MENUNGGU` or `DITOLAK`.
 
 ### 7.4 Notifications (FCM)
 - App sends its FCM token after login and whenever the token refreshes.
-- Events: new order → seller; confirmed → buyer; rejected → buyer with reason.
+- Events: new order → seller; accepted/cooking → buyer; ready → buyer; completed → buyer; rejected → buyer with reason.
 - Message contains notification title/body in Indonesian plus data payload `{ "type": "ORDER_STATUS" | "NEW_ORDER", "order_id": "<id>" }`.
-- Example bodies: "Pesanan CC-20261117-A3F9 dikonfirmasi. Silakan ambil di Dapur Gapura." and "Pesanan CC-20261117-A3F9 ditolak: Bahan habis."
+- Example bodies: "Pesanan CC-20261117-A3F9 diterima dan sedang dimasak di Dapur Gapura.", "Pesanan CC-20261117-A3F9 siap diambil di Dapur Gapura.", "Pesanan CC-20261117-A3F9 selesai. Terima kasih!", and "Pesanan CC-20261117-A3F9 ditolak: Bahan habis."
 - Sending failures never break the API request; log and continue. Invalid tokens are cleared.
 
 ### 7.5 Time
@@ -416,7 +420,8 @@ Menus, all APPROVED with verified nutrition unless noted. Nutrition = calories k
 | Kedai Segar | Roti Gandum Telur | MAKANAN | 14000 | 15 | 350, 35, 16, 15, 600, 5 |
 
 Sample orders for Daffa, with dates **relative to seeding time** so the demo always has data:
-- Today, DIKONFIRMASI, Dapur Gapura: 1 Mie Ayam Solo + 2 Es Teh Manis, TUNAI.
+- Today, SIAP_DIAMBIL, Dapur Gapura: 1 Mie Ayam Solo + 2 Es Teh Manis, TUNAI.
+- Yesterday, SELESAI, Dapur Gapura: 1 Nasi Goreng Ayam, QRIS.
 - Yesterday, DITOLAK, Warung Bu Sri: 1 Nasi Ayam Bakar, QRIS, reason "Bahan habis".
 
 Nutrition values are reasonable estimates; mention this in README.
@@ -503,18 +508,18 @@ Use a `Routes` object with string routes and `navArgument`, consistent with the 
 
 **Shared:** `splash` checks session → `login` ↔ `register` → role home. `profile` shows name, email, role, stall name for sellers, and Logout.
 
-**PEMBELI** — bottom bar: Beranda, Gizi, Riwayat, Profil
+**PEMBELI** — bottom bar: Beranda, Gizi, Pesanan, Profil
 - `home`: greeting "Selamat datang, {nama}", search bar with **debounce 500 ms + distinctUntilChanged + collectLatest** searching menus across stalls; when search is empty show the stall grid; cart button with item count badge.
 - `vendor/{vendorId}`: stall header, category filter chips, menu grid with price, kcal, and stock; tapping opens a **ModalBottomSheet** with menu detail, full nutrition table, "Gizi terverifikasi admin" badge, quantity stepper, and "Tambah ke Keranjang".
 - `cart`: items with stepper and remove, **total nutrition card** with all six nutrients, **total price**, payment method selector TUNAI / QRIS, optional note, "Pesan Sekarang". QRIS shows a sample QR image with "Simulasi pembayaran".
-- `order/{orderId}`: status chip, order number, stall, items, totals, rejection reason if any, timestamps. Auto-refresh every 10 s while status is MENUNGGU.
-- `history`: list of orders with status chip and pull-to-refresh, filter chips Semua / Menunggu / Dikonfirmasi / Ditolak.
+- `order/{orderId}`: status chip, progress steps, order number, stall, items, totals, rejection reason if any, timestamps. Auto-refresh every 10 s while the status is active (MENUNGGU, SEDANG_DIMASAK, SIAP_DIAMBIL).
+- `history`: "Pesanan Saya" with tabs Dalam Proses and Riwayat, status chip, pull-to-refresh. Riwayat has filter chips Semua / Selesai / Ditolak.
 - `nutrition`: "Gizi Hari Ini" with date, six **NutrientProgressBar** rows colored by status with texts like "Sisa 780 kkal" or "Melebihi batas 26 g", count of confirmed orders today, button to edit target.
 - `nutrition_target`: form for six values with validation > 0 and a "Kembalikan ke default" option.
 
 **PENJUAL** — bottom bar: Pesanan, Menu & Stok, Profil
-- `seller_orders`: tabs Menunggu / Dikonfirmasi / Ditolak, auto-refresh every 10 s on the Menunggu tab, badge with pending count.
-- `seller_order/{orderId}`: items, buyer name, note, totals; buttons Konfirmasi and Tolak, where Tolak opens a dialog for the reason.
+- `seller_orders`: tabs Masuk / Dimasak / Siap Diambil / Riwayat, auto-refresh every 10 s on active tabs, badges with pending and ready counts.
+- `seller_order/{orderId}`: items, buyer name, note, totals. MENUNGGU has Terima and Tolak (dialog for reason); SEDANG_DIMASAK has Tandai Siap Diambil; SIAP_DIAMBIL has Selesaikan Pesanan with confirmation dialog.
 - `seller_menus`: list with status chip, inline stock edit, archive with confirmation dialog.
 - `seller_menu_new`: form for name, description, category, price, stock, image URL, and estimated nutrition, with info text "Menu akan diverifikasi admin sebelum tampil".
 
@@ -558,7 +563,7 @@ Create folder structure, root README skeleton, `.gitignore` for Python, Android,
 Config, DB, all models, security, deps, error handling, seed, auth endpoints, `/auth/me`, fcm-token endpoint. Tests for auth. Done when the server starts, Swagger opens, and the demo accounts can log in.
 
 **Phase 2 — Backend features**
-Catalog, orders, nutrition target, seller, admin, reset-demo. Full test suite passing. Done when Daffa can walk through: buyer orders → seller confirms → stock decreases → order shows DIKONFIRMASI, all from Swagger. Give him that walkthrough as numbered steps.
+Catalog, orders, nutrition target, seller, admin, reset-demo. Full test suite passing. Done when Daffa can walk through: buyer orders → seller confirms → stock decreases → order shows SEDANG_DIMASAK → ready → SELESAI, all from Swagger. Give him that walkthrough as numbered steps.
 
 **Phase 3 — Backend notifications**
 Notification service with firebase-admin, no-op without credentials. Then give Daffa exact steps to create a Firebase project, add an Android app with package `com.kelompok10.canteencare`, download `google-services.json` into `android/app/`, and generate a service-account key saved as `backend/firebase-service-account.json` which is gitignored.

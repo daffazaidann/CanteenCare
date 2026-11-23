@@ -94,8 +94,10 @@ Body/respons: `target_calories, target_carbs, target_protein, target_fat, target
 | Method | Path | Keterangan |
 |---|---|---|
 | GET | `/seller/orders` | Opsional `?status=`, terbaru dulu |
-| POST | `/seller/orders/{id}/confirm` | Hanya dari MENUNGGU. Cek ulang dan kurangi stok secara atomik. Jadi DIKONFIRMASI. Kirim FCM ke pembeli |
-| POST | `/seller/orders/{id}/reject` | Body `reason`. Hanya dari MENUNGGU. Jadi DITOLAK, stok tidak berubah. Kirim FCM ke pembeli |
+| POST | `/seller/orders/{id}/confirm` | Hanya dari MENUNGGU. Cek ulang dan kurangi stok secara atomik. Jadi SEDANG_DIMASAK. Kirim FCM ke pembeli |
+| POST | `/seller/orders/{id}/ready` | Hanya dari SEDANG_DIMASAK. Jadi SIAP_DIAMBIL. Kirim FCM ke pembeli |
+| POST | `/seller/orders/{id}/complete` | Hanya dari SIAP_DIAMBIL. Jadi SELESAI dan `resolved_at` terisi. Kirim FCM ke pembeli |
+| POST | `/seller/orders/{id}/reject` | Body `reason`. Hanya dari MENUNGGU. Jadi DITOLAK dan `resolved_at` terisi, stok tidak berubah. Kirim FCM ke pembeli |
 | GET | `/seller/menus` | Semua menu milik sendiri, semua status |
 | POST | `/seller/menus` | Ajukan menu baru dengan estimasi gizi. Body `name, description?, category, price, stock, image_url?, nutrition{6 nilai}`. Status PENDING |
 | PATCH | `/seller/menus/{id}/stock` | Body `stock` ≥ 0 |
@@ -124,8 +126,12 @@ Menu berstatus ARCHIVED tidak bisa disetujui atau ditolak (409 `INVALID_MENU_STA
 ## Alur Status Pesanan
 
 ```
-MENUNGGU ──confirm──▶ DIKONFIRMASI   stok berkurang, dihitung ke gizi harian pembeli
-    └──────reject───▶ DITOLAK        stok tetap, tidak dihitung
+MENUNGGU ──confirm──▶ SEDANG_DIMASAK ──ready──▶ SIAP_DIAMBIL ──complete──▶ SELESAI
+    └──────reject───▶ DITOLAK
 ```
 
-DIKONFIRMASI dan DITOLAK adalah status akhir. Transisi lain → 409 `INVALID_ORDER_STATE`.
+- Stok berkurang saat `confirm`, bukan saat pesanan selesai.
+- `SEDANG_DIMASAK`, `SIAP_DIAMBIL`, dan `SELESAI` dihitung ke gizi harian pembeli.
+- `SELESAI` dan `DITOLAK` adalah status akhir dan masuk tab Riwayat.
+- `resolved_at` hanya diisi saat `SELESAI` atau `DITOLAK`.
+- Transisi lain → 409 `INVALID_ORDER_STATE`.

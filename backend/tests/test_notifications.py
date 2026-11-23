@@ -54,9 +54,29 @@ def test_confirm_notifies_buyer(client, sent):
     message = sent[-1]
     assert message.token == "token-daffa"
     assert message.notification.body == (
-        f"Pesanan {order['order_number']} dikonfirmasi. Silakan ambil di Dapur Gapura."
+        f"Pesanan {order['order_number']} diterima dan sedang dimasak di Dapur Gapura."
     )
     assert message.data == {"type": "ORDER_STATUS", "order_id": str(order["id"])}
+
+
+def test_ready_and_complete_notify_buyer(client, sent):
+    buyer, seller = _register_tokens(client)
+    order = client.post(f"{API}/orders", headers=buyer, json=ORDER_BODY).json()
+    client.post(f"{API}/seller/orders/{order['id']}/confirm", headers=seller)
+
+    client.post(f"{API}/seller/orders/{order['id']}/ready", headers=seller)
+    ready_message = sent[-1]
+    client.post(f"{API}/seller/orders/{order['id']}/complete", headers=seller)
+    complete_message = sent[-1]
+
+    assert ready_message.notification.body == (
+        f"Pesanan {order['order_number']} siap diambil di Dapur Gapura."
+    )
+    assert complete_message.notification.body == (
+        f"Pesanan {order['order_number']} selesai. Terima kasih!"
+    )
+    assert ready_message.data == {"type": "ORDER_STATUS", "order_id": str(order["id"])}
+    assert complete_message.data == {"type": "ORDER_STATUS", "order_id": str(order["id"])}
 
 
 def test_reject_notifies_buyer_with_reason(client, sent):
