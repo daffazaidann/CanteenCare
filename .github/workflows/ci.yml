@@ -1,9 +1,23 @@
 name: CI Smoke Test
 
 on:
-  push:
   pull_request:
+    # Hanya jalankan CI jika ada perubahan kode backend atau android.
+    # Perubahan hanya di docs/* tidak memicu workflow (diabaikan).
+    paths:
+      - 'backend/**'
+      - 'android/**'
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target smoke test manual'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - android
 
 permissions:
   contents: read
@@ -13,8 +27,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  paths-filter:
+    name: Deteksi path yang berubah
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            android:
+              - 'android/**'
+
   backend:
     name: Backend smoke test
+    needs: paths-filter
+    if: >
+      always() && (
+        needs.paths-filter.outputs.backend == 'true' ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'backend'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -69,8 +110,16 @@ jobs:
             exit 1
           fi
 
-          # Endpoint ini membaca database, jadi sekaligus membuktikan seed berhasil.
+          # Login sebagai admin untuk mendapatkan access token (vendors membutuhkan autentikasi)
+          TOKEN=$(curl --silent --show-error -X POST http://127.0.0.1:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@canteencare.id","password":"admin123"}' \
+            | python -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')
+
+          # Endpoint ini membaca database dan membutuhkan autentikasi,
+          # jadi sekaligus membuktikan seed berhasil dan token valid.
           curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/vendors \
+            -H "Authorization: Bearer $TOKEN" \
             | python -c 'import json, sys; data = json.load(sys.stdin); assert data, "seed vendor kosong"; print(f"OK: {len(data)} vendor dari seed")'
 
           if grep -q "Firebase siap" uvicorn.log; then
@@ -83,6 +132,12 @@ jobs:
 
   android:
     name: Android build smoke test
+    needs: paths-filter
+    if: >
+      always() && (
+        needs.paths-filter.outputs.android == 'true' ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'android'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -94,19 +149,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0"
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0"
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
