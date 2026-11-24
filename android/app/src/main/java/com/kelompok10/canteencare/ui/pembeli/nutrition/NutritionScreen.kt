@@ -105,7 +105,7 @@ fun NutritionScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    item { SummaryCard(uiState.confirmedOrderCount, onEditTarget) }
+                    item { SummaryCard(uiState.countedOrderCount, onEditTarget) }
                     items(uiState.progress, key = { it.nutrient }) { progress ->
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                             NutrientProgressBar(progress, Modifier.padding(16.dp))
@@ -119,7 +119,7 @@ fun NutritionScreen(
 }
 
 @Composable
-private fun SummaryCard(confirmedOrderCount: Int, onEditTarget: () -> Unit) {
+private fun SummaryCard(countedOrderCount: Int, onEditTarget: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -129,8 +129,8 @@ private fun SummaryCard(confirmedOrderCount: Int, onEditTarget: () -> Unit) {
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    if (confirmedOrderCount == 0) "Belum ada pesanan yang dikonfirmasi hari ini"
-                    else "$confirmedOrderCount pesanan dikonfirmasi hari ini",
+                    if (countedOrderCount == 0) "Belum ada pesanan yang diterima hari ini"
+                    else "$countedOrderCount pesanan diterima hari ini",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(start = 12.dp),
@@ -156,7 +156,7 @@ private fun LegendNote() {
         Text(
             "Kalori, karbohidrat, dan protein adalah target yang sebaiknya dicapai. " +
                 "Lemak, garam, dan gula adalah batas maksimal yang sebaiknya tidak dilewati. " +
-                "Hanya pesanan yang sudah dikonfirmasi penjual yang dihitung.",
+                "Hanya pesanan yang sudah diterima penjual yang dihitung.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 8.dp),
@@ -174,7 +174,7 @@ private fun NutritionScreenPreview() {
                 date = LocalDate.of(2026, 11, 18),
                 isLoading = false,
                 progress = NutritionCalculator.calculateProgress(consumed, NutritionTarget.DEFAULT),
-                confirmedOrderCount = 2,
+                countedOrderCount = 2,
             ),
             onRefresh = {}, onRetry = {}, onEditTarget = {},
         )

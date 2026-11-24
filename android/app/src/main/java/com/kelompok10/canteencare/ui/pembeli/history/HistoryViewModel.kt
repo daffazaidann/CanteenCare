@@ -29,15 +29,24 @@ class HistoryViewModel @Inject constructor(
 
     fun onRefresh() = fetch(pullToRefresh = true)
 
+    fun onSectionSelected(section: HistorySection) {
+        if (section == _uiState.value.selectedSection) return
+        _uiState.update {
+            it.copy(
+                selectedSection = section,
+                // Filter status hanya dipakai di tab Riwayat
+                selectedStatus = if (section == HistorySection.ACTIVE) null else it.selectedStatus,
+            )
+        }
+    }
+
     fun onFilterSelected(status: OrderStatus?) {
         if (status == _uiState.value.selectedStatus) return
-        _uiState.update { it.copy(selectedStatus = status, orders = emptyList()) }
-        fetch(pullToRefresh = false)
+        _uiState.update { it.copy(selectedStatus = status) }
     }
 
     private fun fetch(pullToRefresh: Boolean) {
-        // Batalkan permintaan lama, misalnya saat user cepat berganti chip filter,
-        // supaya hasil filter lama tidak menimpa hasil filter baru
+        // Batalkan permintaan lama supaya hasil lama tidak menimpa hasil baru
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             _uiState.update {
@@ -48,7 +57,8 @@ class HistoryViewModel @Inject constructor(
                     errorMessage = null,
                 )
             }
-            when (val result = orderRepository.getMyOrders(_uiState.value.selectedStatus)) {
+            // Ambil semua pesanan sekali, lalu bagi ke tab Dalam Proses dan Riwayat di UI.
+            when (val result = orderRepository.getMyOrders(null)) {
                 is ApiResult.Success -> _uiState.update {
                     it.copy(isLoading = false, isRefreshing = false, orders = result.data)
                 }

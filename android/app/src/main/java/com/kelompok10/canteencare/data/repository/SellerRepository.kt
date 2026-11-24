@@ -12,11 +12,17 @@ interface SellerRepository {
 
     suspend fun getOrder(orderId: Int): ApiResult<Order>
 
-    /** MENUNGGU → DIKONFIRMASI; server mengurangi stok semua item sekaligus. */
+    /** MENUNGGU → SEDANG_DIMASAK; server mengurangi stok semua item sekaligus. */
     suspend fun confirmOrder(orderId: Int): ApiResult<Order>
 
     /** MENUNGGU → DITOLAK dengan alasan; stok tidak berubah. */
     suspend fun rejectOrder(orderId: Int, reason: String): ApiResult<Order>
+
+    /** SEDANG_DIMASAK → SIAP_DIAMBIL; pembeli mendapat notifikasi. */
+    suspend fun markOrderReady(orderId: Int): ApiResult<Order>
+
+    /** SIAP_DIAMBIL → SELESAI; pesanan pindah ke riwayat. */
+    suspend fun completeOrder(orderId: Int): ApiResult<Order>
 
     suspend fun getMenus(): ApiResult<List<Menu>>
 

@@ -32,18 +32,19 @@ class DailyNutritionTest {
     // ---------- Langkah 1: sumNutrition ----------
 
     @Test
-    fun `hanya pesanan dikonfirmasi yang dijumlahkan`() {
+    fun `hanya pesanan yang sudah diterima yang dijumlahkan`() {
         val orders = listOf(
-            order(OrderStatus.DIKONFIRMASI, mieAyamSolo to 1, esTehManis to 2), // 890 kkal
-            order(OrderStatus.DIKONFIRMASI, esTehManis to 1), // 120 kkal
+            order(OrderStatus.SEDANG_DIMASAK, mieAyamSolo to 1, esTehManis to 2), // 890 kkal
+            order(OrderStatus.SIAP_DIAMBIL, esTehManis to 1), // 120 kkal
+            order(OrderStatus.SELESAI, mieAyamSolo to 1), // 650 kkal
             order(OrderStatus.MENUNGGU, mieAyamSolo to 3), // tidak dihitung
             order(OrderStatus.DITOLAK, mieAyamSolo to 1), // tidak dihitung
         )
 
         val total = NutritionCalculator.sumNutrition(orders)
 
-        assertEquals(1010.0, total.calories, DELTA)
-        assertEquals(96.0, total.sugar, DELTA) // 6 + 2×30 + 30
+        assertEquals(1660.0, total.calories, DELTA)
+        assertEquals(102.0, total.sugar, DELTA) // 6 + 2×30 + 30 + 6
     }
 
     @Test
@@ -113,7 +114,7 @@ class DailyNutritionTest {
     fun `alur lengkap dari pesanan seed sampai progres`() {
         // Pesanan seed hari ini: 1 Mie Ayam Solo + 2 Es Teh Manis
         val consumed = NutritionCalculator.sumNutrition(
-            listOf(order(OrderStatus.DIKONFIRMASI, mieAyamSolo to 1, esTehManis to 2)),
+            listOf(order(OrderStatus.SIAP_DIAMBIL, mieAyamSolo to 1, esTehManis to 2)),
         )
 
         val salt = progressOf(consumed, NutritionTarget.DEFAULT, Nutrient.SALT) // 1820 dari 2000 mg

@@ -6,9 +6,9 @@ Final project Praktikum Pengembangan Aplikasi Perangkat Bergerak (PAPB) TIF-A, F
 
 ## Fitur Inti
 
-1. **Pemesanan Makanan dan Minuman Terintegrasi**: keranjang, total harga, pembayaran simulasi (Tunai/QRIS), konfirmasi penjual yang mengurangi stok, dan push notification.
+1. **Pemesanan Makanan dan Minuman Terintegrasi**: keranjang, total harga, pembayaran simulasi (Tunai/QRIS), penerimaan penjual yang mengurangi stok, alur pesanan sampai selesai, dan push notification.
 2. **Informasi dan Perhitungan Total Gizi Pesanan**: total kalori, karbohidrat, protein, lemak, garam, dan gula dihitung langsung di keranjang dan berubah setiap kali jumlah porsi diubah.
-3. **Pelacakan Asupan Gizi Harian terhadap Target**: progres gizi hari ini (WIB) dari pesanan yang sudah dikonfirmasi, dibandingkan target pribadi, lengkap dengan persentase, sisa, dan warna status.
+3. **Pelacakan Asupan Gizi Harian terhadap Target**: progres gizi hari ini (WIB) dari pesanan yang sudah diterima penjual (sedang dimasak, siap diambil, atau selesai), dibandingkan target pribadi, lengkap dengan persentase, sisa, dan warna status.
 
 Ketiga perhitungan dilakukan di aplikasi oleh `NutritionCalculator` (Kotlin murni, diuji JUnit). Backend menghitung ulang total pesanan secara terpisah untuk menjaga keabsahan data.
 
@@ -16,8 +16,8 @@ Ketiga perhitungan dilakukan di aplikasi oleh `NutritionCalculator` (Kotlin murn
 
 | Peran | Bisa apa |
 |---|---|
-| **Pembeli** | Daftar, login, lihat stan dan menu beserta gizinya, cari menu, keranjang, pesan, riwayat, notifikasi status pesanan, atur target gizi, lihat gizi hari ini |
-| **Penjual** | Lihat pesanan masuk, konfirmasi (stok berkurang) atau tolak dengan alasan, ubah stok, ajukan menu baru dengan estimasi gizi, arsipkan menu, notifikasi pesanan baru |
+| **Pembeli** | Daftar, login, lihat stan dan menu beserta gizinya, cari menu, keranjang, pesan, pantau pesanan dalam proses dan riwayat, notifikasi status pesanan, atur target gizi, lihat gizi hari ini |
+| **Penjual** | Lihat pesanan masuk, terima (stok berkurang) atau tolak dengan alasan, tandai siap diambil, selesaikan pesanan, ubah stok, ajukan menu baru dengan estimasi gizi, arsipkan menu, notifikasi pesanan baru |
 | **Admin** | Verifikasi gizi dan setujui/tolak menu, edit data menu, buat akun penjual beserta stannya |
 
 ## Struktur Repository
@@ -91,7 +91,7 @@ Sesuaikan path `JAVA_HOME` dengan lokasi instalasi Android Studio di laptopmu.
 
 ## Setup Firebase
 
-Firebase **opsional** dan dipakai hanya untuk push notification (FCM). Tanpa file Firebase, backend dan aplikasi tetap berjalan normal: login, katalog, keranjang, pesanan, konfirmasi penjual, dan gizi harian semuanya bisa dipakai. Yang tidak ada hanya notifikasi di HP, jadi status pesanan dilihat dengan membuka Riwayat atau detail pesanan yang memperbarui diri tiap 10 detik.
+Firebase **opsional** dan dipakai hanya untuk push notification (FCM). Tanpa file Firebase, backend dan aplikasi tetap berjalan normal: login, katalog, keranjang, pesanan, pemrosesan penjual, dan gizi harian semuanya bisa dipakai. Yang tidak ada hanya notifikasi di HP, jadi status pesanan dilihat dengan membuka Pesanan atau detail pesanan yang memperbarui diri tiap 10 detik.
 
 | File | Jika ada | Jika tidak ada |
 |---|---|---|
@@ -154,4 +154,4 @@ Penjual dan admin bisa meng-upload foto menu langsung dari galeri HP lewat tombo
 | Notifikasi kadang terkirim, kadang tidak | Ada dua server backend di port 8000. Cek `netstat -ano \| findstr :8000` dan matikan yang lama |
 | Notifikasi masuk ke akun yang salah | Satu HP hanya menerima notifikasi untuk akun yang **terakhir login** di HP itu. Untuk demo, pakai dua perangkat |
 | Build Gradle gagal karena memori | Tutup aplikasi lain (browser, Discord) saat build sambil menjalankan emulator |
-| Gizi hari ini kosong padahal sudah pesan | Hanya pesanan yang sudah **dikonfirmasi penjual** yang dihitung |
+| Gizi hari ini kosong padahal sudah pesan | Hanya pesanan yang sudah **diterima penjual** (sedang dimasak, siap diambil, atau selesai) yang dihitung |

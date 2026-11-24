@@ -67,9 +67,9 @@ fun SellerOrdersRoute(
         onPauseOrDispose { }
     }
 
-    // Auto-refresh tiap 10 detik hanya saat tab Menunggu terbuka dan layar terlihat
+    // Auto-refresh tiap 10 detik selama tab berisi pesanan aktif dan layar terlihat
     LaunchedEffect(uiState.selectedTab) {
-        if (uiState.selectedTab != OrderStatus.MENUNGGU) return@LaunchedEffect
+        if (!uiState.selectedTab.isActive) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 delay(AUTO_REFRESH_MILLIS)
@@ -91,7 +91,7 @@ fun SellerOrdersRoute(
 @Composable
 fun SellerOrdersScreen(
     uiState: SellerOrdersUiState,
-    onTabSelected: (OrderStatus) -> Unit,
+    onTabSelected: (SellerOrderTab) -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onOrderClick: (Int) -> Unit,
@@ -103,18 +103,22 @@ fun SellerOrdersScreen(
                 .fillMaxSize(),
         ) {
             PrimaryTabRow(selectedTabIndex = uiState.selectedTab.ordinal) {
-                OrderStatus.entries.forEach { status ->
+                SellerOrderTab.entries.forEach { tab ->
                     Tab(
-                        selected = uiState.selectedTab == status,
-                        onClick = { onTabSelected(status) },
+                        selected = uiState.selectedTab == tab,
+                        onClick = { onTabSelected(tab) },
                         selectedContentColor = MaterialTheme.colorScheme.primary,
                         unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(status.label)
-                                // Badge jumlah pesanan yang masih menunggu
-                                if (status == OrderStatus.MENUNGGU && uiState.pendingCount > 0) {
-                                    Badge(Modifier.padding(start = 6.dp)) { Text(uiState.pendingCount.toString()) }
+                                Text(tab.label)
+                                val badgeCount = when (tab) {
+                                    SellerOrderTab.MASUK -> uiState.pendingCount
+                                    SellerOrderTab.SIAP -> uiState.readyCount
+                                    else -> 0
+                                }
+                                if (badgeCount > 0) {
+                                    Badge(Modifier.padding(start = 6.dp)) { Text(badgeCount.toString()) }
                                 }
                             }
                         },
@@ -137,7 +141,7 @@ fun SellerOrdersScreen(
                         if (uiState.visibleOrders.isEmpty()) {
                             item {
                                 EmptyView(
-                                    "Tidak ada pesanan berstatus ${uiState.selectedTab.label.lowercase()}.",
+                                    "Tidak ada pesanan di tab ${uiState.selectedTab.label.lowercase()}.",
                                     Icons.AutoMirrored.Filled.ReceiptLong,
                                     Modifier.fillParentMaxSize(),
                                 )
@@ -204,7 +208,11 @@ private fun SellerOrdersScreenPreview() {
     )
     CanteenCareTheme {
         SellerOrdersScreen(
-            uiState = SellerOrdersUiState(orders = orders, isLoading = false),
+            uiState = SellerOrdersUiState(
+                orders = orders,
+                isLoading = false,
+                selectedTab = SellerOrderTab.MASUK,
+            ),
             onTabSelected = {}, onRefresh = {}, onRetry = {}, onOrderClick = {},
         )
     }

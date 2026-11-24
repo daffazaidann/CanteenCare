@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kelompok10.canteencare.core.network.ApiResult
 import com.kelompok10.canteencare.data.repository.SellerRepository
-import com.kelompok10.canteencare.domain.model.OrderStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,10 +33,10 @@ class SellerOrdersViewModel @Inject constructor(
         loadJob = viewModelScope.launch { fetch(pullToRefresh = true) }
     }
 
-    /** Dipanggil tiap 10 detik selama tab Menunggu terbuka, tanpa spinner. */
+    /** Dipanggil tiap 10 detik selama tab aktif terbuka, tanpa spinner. */
     suspend fun autoRefresh() = fetch(pullToRefresh = false)
 
-    fun onTabSelected(status: OrderStatus) = _uiState.update { it.copy(selectedTab = status) }
+    fun onTabSelected(tab: SellerOrderTab) = _uiState.update { it.copy(selectedTab = tab) }
 
     private suspend fun fetch(pullToRefresh: Boolean) {
         _uiState.update {

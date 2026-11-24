@@ -26,7 +26,7 @@ class NutritionViewModel @Inject constructor(
 
     private var loadJob: Job? = null
 
-    /** Dipanggil setiap layar tampil, misalnya setelah target diubah atau pesanan dikonfirmasi. */
+    /** Dipanggil setiap layar tampil, misalnya setelah target diubah atau pesanan diterima. */
     fun onScreenResumed() = load(pullToRefresh = false)
 
     fun onRefresh() = load(pullToRefresh = true)
@@ -47,7 +47,7 @@ class NutritionViewModel @Inject constructor(
 
             // Target dan pesanan hari ini diambil bersamaan
             val targetCall = async { nutritionRepository.getTarget() }
-            val ordersCall = async { nutritionRepository.getConfirmedOrders(today) }
+            val ordersCall = async { nutritionRepository.getOrdersForDate(today) }
             val target = targetCall.await()
             val orders = ordersCall.await()
 
@@ -55,7 +55,7 @@ class NutritionViewModel @Inject constructor(
                 target is ApiResult.Error -> showError(target.message)
                 orders is ApiResult.Error -> showError(orders.message)
                 target is ApiResult.Success && orders is ApiResult.Success -> {
-                    // Fungsi 3: (1) jumlahkan gizi pesanan dikonfirmasi, (2) bandingkan dengan target
+                    // Fungsi 3: (1) jumlahkan gizi pesanan yang sudah diterima, (2) bandingkan dengan target
                     val consumed = NutritionCalculator.sumNutrition(orders.data)
                     val progress = NutritionCalculator.calculateProgress(consumed, target.data)
                     _uiState.update {
@@ -63,7 +63,7 @@ class NutritionViewModel @Inject constructor(
                             isLoading = false,
                             isRefreshing = false,
                             progress = progress,
-                            confirmedOrderCount = orders.data.size,
+                            countedOrderCount = orders.data.count { order -> order.status.isCounted },
                         )
                     }
                 }

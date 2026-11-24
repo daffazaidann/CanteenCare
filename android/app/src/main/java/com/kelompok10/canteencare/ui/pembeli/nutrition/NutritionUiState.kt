@@ -10,5 +10,5 @@ data class NutritionUiState(
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val progress: List<NutrientProgress> = emptyList(),
-    val confirmedOrderCount: Int = 0,
+    val countedOrderCount: Int = 0,
 )

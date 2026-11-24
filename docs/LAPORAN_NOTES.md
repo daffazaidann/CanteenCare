@@ -54,9 +54,9 @@ Scaffold(
 ```
 
 Layar lain di alur Fungsi 1:
-- `ui/pembeli/order/OrderDetailScreen.kt`: detail dan status pesanan.
-- `ui/pembeli/history/HistoryScreen.kt`: riwayat pesanan dengan filter.
-- `ui/penjual/order/SellerOrderDetailScreen.kt`: tombol Konfirmasi/Tolak untuk penjual.
+- `ui/pembeli/order/OrderDetailScreen.kt`: detail pesanan dengan timeline status.
+- `ui/pembeli/history/HistoryScreen.kt`: tab Dalam Proses dan Riwayat dengan filter.
+- `ui/penjual/order/SellerOrderDetailScreen.kt`: tombol Terima/Tolak, Tandai Siap Diambil, dan Selesaikan Pesanan.
 
 **Penjelasan:** Layar keranjang dibangun dengan `Scaffold`. `LazyColumn` dipakai supaya daftar item bisa di-scroll dan efisien. Total harga diletakkan di `bottomBar`, jadi selalu terlihat walaupun daftar panjang. Setiap baris item adalah `Card` dengan stepper, sehingga pembeli bisa mengubah jumlah tanpa pindah layar.
 
@@ -213,10 +213,10 @@ Layar mengamati state ini dengan `collectAsStateWithLifecycle()` di `CartRoute`.
 **File:** `domain/calculator/NutritionCalculator.kt`, fungsi `sumNutrition`, `calculateProgress`, dan `statusOf`. Model ada di `domain/model/NutritionTarget.kt` (`NutrientProgress`, `NutrientStatus`) dan `domain/model/Nutrition.kt` (`NutrientKind` GOAL/LIMIT).
 
 ```kotlin
-/** Langkah 1: hanya pesanan DIKONFIRMASI yang dihitung. */
+/** Langkah 1: hanya pesanan yang sudah diterima penjual yang dihitung. */
 fun sumNutrition(orders: List<Order>): Nutrition {
-    val confirmed = orders.filter { it.status == OrderStatus.DIKONFIRMASI }
-    val perOrder = confirmed.map { calculateOrderNutrition(it.items) }
+    val counted = orders.filter { it.status.isCounted }
+    val perOrder = counted.map { calculateOrderNutrition(it.items) }
     return Nutrition(calories = perOrder.sumOf { it.calories }, ...)
 }
 
@@ -251,9 +251,9 @@ Tes di `app/src/test/.../domain/calculator/DailyNutritionTest.kt`:
 - Kalori 1370 dari 2150 menghasilkan **63,7% KURANG, sisa 780**.
 - Gula 76 dari 50 menghasilkan **152% MELEBIHI_BATAS, lebih 26**.
 - Batas tepat di 80% dan 100%.
-- Pesanan menunggu dan ditolak tidak ikut dihitung.
+- Pesanan sedang dimasak, siap diambil, dan selesai ikut dihitung; pesanan menunggu dan ditolak tidak ikut dihitung.
 
-**Penjelasan:** Fungsi 3 terdiri dari dua langkah. Pertama, semua pesanan hari ini yang sudah dikonfirmasi penjual dijumlahkan gizinya. Pesanan yang masih menunggu atau ditolak tidak dihitung karena belum tentu dimakan. Kedua, total tersebut dibandingkan dengan target harian pembeli untuk setiap gizi, menghasilkan persentase, sisa, kelebihan, dan status. Ada dua jenis gizi. Kalori, karbohidrat, dan protein adalah target yang ingin dicapai, sehingga di bawah 80% berarti kurang. Lemak, garam, dan gula adalah batas maksimal, sehingga di bawah 80% justru aman dan di atas 100% berarti melebihi batas.
+**Penjelasan:** Fungsi 3 terdiri dari dua langkah. Pertama, semua pesanan hari ini yang sudah diterima penjual dijumlahkan gizinya. Pesanan yang masih menunggu atau ditolak tidak dihitung karena belum tentu dimakan, sedangkan pesanan yang sedang dimasak, siap diambil, atau sudah selesai dianggap akan atau sudah dikonsumsi. Kedua, total tersebut dibandingkan dengan target harian pembeli untuk setiap gizi, menghasilkan persentase, sisa, kelebihan, dan status. Ada dua jenis gizi. Kalori, karbohidrat, dan protein adalah target yang ingin dicapai, sehingga di bawah 80% berarti kurang. Lemak, garam, dan gula adalah batas maksimal, sehingga di bawah 80% justru aman dan di atas 100% berarti melebihi batas.
 
 ### B. Layout dan UI
 
@@ -294,11 +294,17 @@ LifecycleResumeEffect(Unit) {
 
 // NutritionViewModel.load(): target dan pesanan diambil bersamaan
 val targetCall = async { nutritionRepository.getTarget() }
-val ordersCall = async { nutritionRepository.getConfirmedOrders(today) }
+val ordersCall = async { nutritionRepository.getOrdersForDate(today) }
 ...
 val consumed = NutritionCalculator.sumNutrition(orders.data)
 val progress = NutritionCalculator.calculateProgress(consumed, target.data)
-_uiState.update { it.copy(isLoading = false, progress = progress, confirmedOrderCount = orders.data.size) }
+_uiState.update {
+    it.copy(
+        isLoading = false,
+        progress = progress,
+        countedOrderCount = orders.data.count { order -> order.status.isCounted },
+    )
+}
 ```
 
 Form target menyimpan isian sebagai teks di `NutritionTargetUiState`. Saat "Simpan" ditekan, setiap nilai divalidasi dengan `TargetValidator.parse` (harus lebih dari 0). Kolom yang salah ditandai merah.
@@ -309,16 +315,16 @@ Form target menyimpan isian sebagai teks di `NutritionTargetUiState`. Saat "Simp
 
 - **Retrofit:** `ApiService`:
   - `@GET("nutrition-target")` dan `@PUT("nutrition-target")`.
-  - `@GET("orders/me")` dengan query `status=DIKONFIRMASI` dan `date=YYYY-MM-DD`.
+  - `@GET("orders/me")` dengan query `date=YYYY-MM-DD`; status tidak difilter di server.
 - **Repository:** `data/repository/DefaultNutritionRepository.kt`:
   ```kotlin
-  override suspend fun getConfirmedOrders(date: LocalDate): ApiResult<List<Order>> = safeApiCall {
-      api.getMyOrders(status = OrderStatus.DIKONFIRMASI.name, date = date.toString()).map { it.toDomain() }
+  override suspend fun getOrdersForDate(date: LocalDate): ApiResult<List<Order>> = safeApiCall {
+      api.getMyOrders(date = date.toString()).map { it.toDomain() }
   }
   ```
 - **Tanggal WIB:** `core/util/WibTime.kt` (`today()` memakai zona `Asia/Jakarta`); backend memfilter `created_at` menurut tanggal WIB.
 
-**Penjelasan:** Aplikasi meminta dua data ke server lewat Retrofit: target gizi pembeli dan daftar pesanan hari ini yang sudah dikonfirmasi. "Hari ini" selalu memakai WIB, baik di aplikasi maupun di server, supaya pesanan jam 6 pagi WIB tidak terhitung sebagai hari kemarin, karena server menyimpan waktu dalam UTC. Setelah datanya datang, semua perhitungan dilakukan di aplikasi oleh `NutritionCalculator`, bukan oleh server.
+**Penjelasan:** Aplikasi meminta dua data ke server lewat Retrofit: target gizi pembeli dan daftar semua pesanan hari ini. "Hari ini" selalu memakai WIB, baik di aplikasi maupun di server, supaya pesanan jam 6 pagi WIB tidak terhitung sebagai hari kemarin, karena server menyimpan waktu dalam UTC. Status pesanan tidak difilter di server; `NutritionCalculator` yang memilih pesanan yang sudah diterima penjual. Semua perhitungan dilakukan di aplikasi, bukan oleh server.
 
 ---
 
@@ -337,12 +343,13 @@ Ambil dari emulator 1080×2400 setelah menjalankan `reset-demo`. Ukuran yang sam
 | 7 | Keranjang: 1 Mie Ayam + 2 Es Teh, total Rp28.000 dan 890 kkal | Daffa | Fungsi 1 B, Fungsi 2 B |
 | 8 | Keranjang setelah Es Teh ditambah menjadi 3 (Rp32.000, 1.010 kkal) | Daffa | Fungsi 2 C (reaktif) |
 | 9 | Keranjang dengan QRIS simulasi | Daffa | Fungsi 1 B |
-| 10 | Detail pesanan berstatus Menunggu | Daffa | Fungsi 1 |
-| 11 | Pesanan Masuk penjual dengan badge Menunggu | Gapura | Fungsi 1 |
-| 12 | Detail pesanan penjual dengan tombol Konfirmasi/Tolak | Gapura | Fungsi 1 C |
+| 10 | Detail pesanan berstatus Menunggu dengan timeline | Daffa | Fungsi 1 |
+| 11 | Pesanan Masuk penjual dengan badge Masuk | Gapura | Fungsi 1 |
+| 12 | Detail pesanan penjual dengan tombol Terima/Tolak | Gapura | Fungsi 1 C |
 | 13 | Dialog alasan penolakan | Gapura | Fungsi 1 C |
-| 14 | Notifikasi "Pesanan … dikonfirmasi" di status bar | Daffa | Fungsi 1 D |
-| 15 | Riwayat dengan chip status berwarna | Daffa | Fungsi 1 |
+| 14 | Notifikasi "Pesanan Sedang Dimasak" di status bar | Daffa | Fungsi 1 D |
+| 15 | Tab Pesanan: Dalam Proses dan Riwayat dengan chip status berwarna | Daffa | Fungsi 1 |
+| 15a | Detail pesanan penjual: Tandai Siap Diambil dan Selesaikan Pesanan | Gapura | Fungsi 1 C |
 | 16 | Gizi Hari Ini: campuran warna hijau/kuning/merah | Daffa | Fungsi 3 B |
 | 17 | Form Target Gizi dengan error "lebih dari 0" | Daffa | Fungsi 3 C |
 | 18 | Gizi Hari Ini setelah target diubah (status berubah) | Daffa | Fungsi 3 C |
@@ -350,9 +357,9 @@ Ambil dari emulator 1080×2400 setelah menjalankan `reset-demo`. Ukuran yang sam
 | 20 | Form Menu Baru | Gapura | Pendukung |
 | 21 | Detail menu admin: tombol Setujui nonaktif sebelum verifikasi | Admin | Pendukung |
 | 22 | Detail menu admin setelah verifikasi dan disetujui | Admin | Pendukung |
-| 23 | Hasil `pytest` 74 passed dan `testDebugUnitTest` | – | Pengujian |
+| 23 | Hasil `pytest` 77 passed dan `testDebugUnitTest` | – | Pengujian |
 | 24 | Swagger UI `/docs` | – | Pengujian / D |
 
 Tips:
 - **Screenshot dari terminal:** `adb exec-out screencap -p > nama.png`.
-- **Membuat warna merah di Gizi Hari Ini (no. 16):** pesan beberapa Es Teh Manis (gula 30 g per porsi), lalu konfirmasi sebagai penjual, sehingga gula melewati 50 g.
+- **Membuat warna merah di Gizi Hari Ini (no. 16):** pesan beberapa Es Teh Manis (gula 30 g per porsi), lalu terima pesanan sebagai penjual, sehingga gula melewati 50 g.

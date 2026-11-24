@@ -53,7 +53,7 @@ fun QrisSimulationCard(totalPrice: Int, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                "Tidak ada uang yang ditarik. Pesanan tetap dikonfirmasi oleh penjual.",
+                "Tidak ada uang yang ditarik. Pesanan tetap diproses oleh penjual.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

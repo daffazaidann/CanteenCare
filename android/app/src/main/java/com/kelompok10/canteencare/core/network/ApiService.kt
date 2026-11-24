@@ -99,6 +99,12 @@ interface ApiService {
     @POST("seller/orders/{id}/reject")
     suspend fun rejectOrder(@Path("id") orderId: Int, @Body body: RejectRequestDto): OrderDto
 
+    @POST("seller/orders/{id}/ready")
+    suspend fun markOrderReady(@Path("id") orderId: Int): OrderDto
+
+    @POST("seller/orders/{id}/complete")
+    suspend fun completeOrder(@Path("id") orderId: Int): OrderDto
+
     @GET("seller/menus")
     suspend fun getSellerMenus(): List<MenuDto>
 

@@ -98,26 +98,35 @@ def seed(db: Session) -> None:
     db.flush()
 
     # Contoh pesanan Daffa, tanggalnya relatif terhadap waktu seeding agar demo selalu punya data.
+    # Ada satu pesanan aktif hari ini dan dua pesanan riwayat kemarin.
     now = utcnow()
     start_of_today, _ = wib_day_range_utc(wib_today())
     today_created = max(now - timedelta(minutes=30), start_of_today)
     _add_sample_order(
         db, daffa, vendors_by_name["Dapur Gapura"],
         items=[(menus_by_name["Mie Ayam Solo"], 1), (menus_by_name["Es Teh Manis"], 2)],
-        payment_method=PaymentMethod.TUNAI, status=OrderStatus.DIKONFIRMASI,
-        created_at=today_created, resolved_at=today_created + timedelta(minutes=5),
+        payment_method=PaymentMethod.TUNAI, status=OrderStatus.SIAP_DIAMBIL,
+        created_at=today_created,
     )
-    yesterday = now - timedelta(days=1)
+    yesterday_selesai = start_of_today - timedelta(days=1) + timedelta(hours=10)
+    _add_sample_order(
+        db, daffa, vendors_by_name["Dapur Gapura"],
+        items=[(menus_by_name["Nasi Goreng Ayam"], 1)],
+        payment_method=PaymentMethod.QRIS, status=OrderStatus.SELESAI,
+        created_at=yesterday_selesai, resolved_at=yesterday_selesai + timedelta(minutes=20),
+    )
+    yesterday_ditolak = start_of_today - timedelta(days=1) + timedelta(hours=9)
     _add_sample_order(
         db, daffa, vendors_by_name["Warung Bu Sri"],
         items=[(menus_by_name["Nasi Ayam Bakar"], 1)],
         payment_method=PaymentMethod.QRIS, status=OrderStatus.DITOLAK,
-        created_at=yesterday, resolved_at=yesterday + timedelta(minutes=5), rejection_reason="Bahan habis",
+        created_at=yesterday_ditolak, resolved_at=yesterday_ditolak + timedelta(minutes=5),
+        rejection_reason="Bahan habis",
     )
     db.commit()
 
 
-def _add_sample_order(db, buyer, vendor, items, payment_method, status, created_at, resolved_at,
+def _add_sample_order(db, buyer, vendor, items, payment_method, status, created_at, resolved_at=None,
                       rejection_reason=None) -> None:
     order = Order(
         order_number=generate_order_number(created_at),
