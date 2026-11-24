@@ -68,7 +68,6 @@ jobs:
       # Sengaja menunjuk ke file yang tidak ada agar Firebase no-op tanpa secret.
       FIREBASE_CREDENTIALS: ci-no-firebase.json
       BCRYPT_ROUNDS: "4"
-      UPLOAD_DIR: ci-uploads
 
     steps:
       - name: Checkout

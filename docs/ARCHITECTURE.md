@@ -145,5 +145,5 @@ Contoh: layar "Daftar Favorit" untuk pembeli.
 
 | Bagian | Perintah | Isi |
 |---|---|---|
-| Backend | `cd backend` lalu `.venv\Scripts\python -m pytest -q` | 69 tes: auth, peran, visibilitas katalog, validasi pesanan, stok, status pesanan, tanggal WIB, target, notifikasi |
-| Android | `cd android` lalu `.\gradlew testDebugUnitTest` | 41 tes JUnit: `NutritionCalculator` (Fungsi 1–3), formatter, validator, parser error |
+| Backend | `cd backend` lalu `.venv\Scripts\python -m pytest -q` | 72 tes: auth, peran, visibilitas katalog, validasi pesanan, stok, status pesanan, tanggal WIB, target, notifikasi |
+| Android | `cd android` lalu `.\gradlew testDebugUnitTest` | 45 tes JUnit: `NutritionCalculator` (Fungsi 1–3), formatter, validator, parser error |
