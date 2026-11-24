@@ -164,6 +164,32 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
+      # google-services.json asli tidak boleh ada di GitHub, padahal plugin Firebase
+      # membutuhkannya saat build. CI memakai file dummy (bukan kunci asli) hanya agar build jalan.
+      - name: Create dummy google-services.json
+        run: |
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "canteencare-ci",
+              "storage_bucket": "canteencare-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": { "package_name": "com.kelompok10.canteencare" }
+                },
+                "oauth_client": [],
+                "api_key": [{ "current_key": "ci-dummy-api-key" }],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+
       - name: Run Android unit tests
         run: ./gradlew testDebugUnitTest --console=plain
 
