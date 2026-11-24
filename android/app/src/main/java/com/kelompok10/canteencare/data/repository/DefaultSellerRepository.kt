@@ -31,6 +31,12 @@ class DefaultSellerRepository @Inject constructor(
     override suspend fun rejectOrder(orderId: Int, reason: String): ApiResult<Order> =
         safeApiCall { api.rejectOrder(orderId, RejectRequestDto(reason)).toDomain() }
 
+    override suspend fun markOrderReady(orderId: Int): ApiResult<Order> =
+        safeApiCall { api.markOrderReady(orderId).toDomain() }
+
+    override suspend fun completeOrder(orderId: Int): ApiResult<Order> =
+        safeApiCall { api.completeOrder(orderId).toDomain() }
+
     override suspend fun getMenus(): ApiResult<List<Menu>> =
         safeApiCall { api.getSellerMenus().map { it.toDomain() } }
 

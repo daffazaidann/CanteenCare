@@ -8,7 +8,6 @@ import com.kelompok10.canteencare.domain.model.NutrientStatus
 import com.kelompok10.canteencare.domain.model.Nutrition
 import com.kelompok10.canteencare.domain.model.NutritionTarget
 import com.kelompok10.canteencare.domain.model.Order
-import com.kelompok10.canteencare.domain.model.OrderStatus
 import kotlin.math.max
 import kotlin.math.roundToLong
 
@@ -50,12 +49,13 @@ object NutritionCalculator {
 
     /**
      * Fungsi 3, langkah 1 — Total asupan gizi dari daftar pesanan.
-     * Hanya pesanan DIKONFIRMASI yang dihitung; pesanan menunggu atau ditolak tidak dimakan.
+     * Pesanan yang dihitung adalah pesanan yang sudah diterima penjual, yaitu
+     * SEDANG_DIMASAK, SIAP_DIAMBIL, dan SELESAI. Pesanan MENUNGGU dan DITOLAK tidak dihitung.
      * Total tiap pesanan dihitung ulang dari itemnya dengan [calculateOrderNutrition].
      */
     fun sumNutrition(orders: List<Order>): Nutrition {
-        val confirmed = orders.filter { it.status == OrderStatus.DIKONFIRMASI }
-        val perOrder = confirmed.map { calculateOrderNutrition(it.items) }
+        val counted = orders.filter { it.status.isCounted }
+        val perOrder = counted.map { calculateOrderNutrition(it.items) }
         return Nutrition(
             calories = perOrder.sumOf { it.calories },
             carbs = perOrder.sumOf { it.carbs },

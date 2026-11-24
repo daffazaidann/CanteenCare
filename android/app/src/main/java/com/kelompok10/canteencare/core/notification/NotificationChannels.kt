@@ -11,7 +11,7 @@ object NotificationChannels {
 
     fun create(context: Context) {
         val channel = NotificationChannel(ORDERS, "Status Pesanan", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Pesanan baru, pesanan dikonfirmasi, dan pesanan ditolak"
+            description = "Pesanan baru, sedang dimasak, siap diambil, selesai, dan ditolak"
         }
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }

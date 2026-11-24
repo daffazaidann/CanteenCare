@@ -39,6 +39,7 @@ import com.kelompok10.canteencare.ui.components.NoticeCard
 import com.kelompok10.canteencare.ui.components.OrderItemsCard
 import com.kelompok10.canteencare.ui.components.LoadingView
 import com.kelompok10.canteencare.ui.components.NutritionTable
+import com.kelompok10.canteencare.ui.components.OrderProgressSteps
 import com.kelompok10.canteencare.ui.components.StatusChip
 import com.kelompok10.canteencare.ui.theme.CanteenCareTheme
 import kotlinx.coroutines.delay
@@ -52,10 +53,10 @@ fun OrderDetailRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Auto-refresh tiap 10 detik selama pesanan masih MENUNGGU dan layar sedang terlihat.
-    // Begitu status berubah (dikonfirmasi/ditolak), effect ini berhenti sendiri.
+    // Auto-refresh tiap 10 detik selama pesanan masih aktif dan layar sedang terlihat.
+    // Begitu status menjadi Selesai atau Ditolak, effect ini berhenti sendiri.
     LaunchedEffect(uiState.order?.status) {
-        if (uiState.order?.status != OrderStatus.MENUNGGU) return@LaunchedEffect
+        if (uiState.order?.status?.isActive != true) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 delay(AUTO_REFRESH_MILLIS)
@@ -110,16 +111,27 @@ private fun OrderDetailContent(order: Order, totalPrice: Int, totalNutrition: Nu
             Text(order.vendorName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             InfoLine("Dipesan", WibTime.formatDateTime(order.createdAt))
             order.resolvedAt?.let {
-                InfoLine(if (order.status == OrderStatus.DITOLAK) "Ditolak" else "Dikonfirmasi", WibTime.formatDateTime(it))
+                InfoLine(
+                    if (order.status == OrderStatus.DITOLAK) "Ditolak" else "Selesai",
+                    WibTime.formatDateTime(it),
+                )
             }
             InfoLine("Pembayaran", order.paymentMethod.label)
             order.note?.let { InfoLine("Catatan", it) }
         }
 
+        if (order.status != OrderStatus.DITOLAK) {
+            OrderProgressSteps(order.status)
+        }
+
         when (order.status) {
-            OrderStatus.MENUNGGU -> NoticeCard("Menunggu konfirmasi penjual. Kamu akan mendapat notifikasi saat pesanan diproses.")
+            OrderStatus.MENUNGGU -> NoticeCard(
+                "Menunggu konfirmasi penjual. Kamu akan mendapat notifikasi saat pesanan diterima."
+            )
+            OrderStatus.SEDANG_DIMASAK -> NoticeCard("Pesanan diterima dan sedang dimasak.")
+            OrderStatus.SIAP_DIAMBIL -> NoticeCard("Pesanan siap! Silakan ambil di ${order.vendorName}.")
+            OrderStatus.SELESAI -> NoticeCard("Pesanan selesai. Terima kasih!")
             OrderStatus.DITOLAK -> NoticeCard("Alasan ditolak: ${order.rejectionReason ?: "-"}", isError = true)
-            OrderStatus.DIKONFIRMASI -> NoticeCard("Pesanan dikonfirmasi. Silakan ambil di ${order.vendorName}.")
         }
 
         OrderItemsCard(order.items, totalPrice)
@@ -137,7 +149,7 @@ private fun OrderDetailScreenPreview() {
         OrderItem(4, "Es Teh Manis", 4000, 2, Nutrition(120.0, 30.0, 0.0, 0.0, 10.0, 30.0)),
     )
     val order = Order(
-        1, "CC-20261118-A3F9", "Daffa", 1, "Dapur Gapura", OrderStatus.MENUNGGU, PaymentMethod.TUNAI,
+        1, "CC-20261118-A3F9", "Daffa", 1, "Dapur Gapura", OrderStatus.SIAP_DIAMBIL, PaymentMethod.TUNAI,
         "Sambal dipisah", null, OffsetDateTime.parse("2026-11-18T09:05:00Z"), null, items,
     )
     CanteenCareTheme {

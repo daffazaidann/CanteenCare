@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +26,10 @@ import com.kelompok10.canteencare.domain.model.OrderStatus
 import com.kelompok10.canteencare.ui.theme.CanteenCareTheme
 import com.kelompok10.canteencare.ui.theme.StatusAmber
 import com.kelompok10.canteencare.ui.theme.StatusGreen
+import com.kelompok10.canteencare.ui.theme.StatusOrange
 import com.kelompok10.canteencare.ui.theme.StatusRed
 
-/** Label berwarna untuk status pesanan: kuning menunggu, hijau dikonfirmasi, merah ditolak. */
+/** Label berwarna untuk setiap tahap pesanan, dari menunggu sampai selesai. */
 @Composable
 fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
     val (color, icon) = statusStyle(status)
@@ -44,7 +47,9 @@ fun StatusChip(status: OrderStatus, modifier: Modifier = Modifier) {
 
 private fun statusStyle(status: OrderStatus): Pair<Color, ImageVector> = when (status) {
     OrderStatus.MENUNGGU -> StatusAmber to Icons.Filled.Schedule
-    OrderStatus.DIKONFIRMASI -> StatusGreen to Icons.Filled.CheckCircle
+    OrderStatus.SEDANG_DIMASAK -> StatusOrange to Icons.Filled.Restaurant
+    OrderStatus.SIAP_DIAMBIL -> StatusGreen to Icons.Filled.NotificationsActive
+    OrderStatus.SELESAI -> StatusGreen to Icons.Filled.CheckCircle
     OrderStatus.DITOLAK -> StatusRed to Icons.Filled.Cancel
 }
 

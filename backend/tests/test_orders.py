@@ -9,7 +9,9 @@ from tests.conftest import ADMIN, BUSRI, DAFFA, GAPURA, RAFAEL, login
 API = "/api/v1"
 DAPUR_GAPURA, WARUNG_BU_SRI = 1, 2
 MIE_AYAM, TAHU_TELUR, ES_TEH, GEPREK_PENDING, NASI_PECEL = 1, 2, 4, 5, 6
-SEED_TODAY_ORDER, SEED_YESTERDAY_ORDER = 1, 2
+SEED_TODAY_ORDER = 1
+SEED_YESTERDAY_COMPLETED_ORDER = 2
+SEED_YESTERDAY_ORDER = 3
 
 
 def _order_body(items, vendor_id=DAPUR_GAPURA, **extra):
@@ -91,7 +93,9 @@ def test_my_orders_newest_first_with_status_filter(client):
     all_orders = client.get(f"{API}/orders/me", headers=headers).json()
     rejected = client.get(f"{API}/orders/me", headers=headers, params={"status": "DITOLAK"}).json()
 
-    assert [o["id"] for o in all_orders] == [SEED_TODAY_ORDER, SEED_YESTERDAY_ORDER]
+    assert [o["id"] for o in all_orders] == [
+        SEED_TODAY_ORDER, SEED_YESTERDAY_COMPLETED_ORDER, SEED_YESTERDAY_ORDER
+    ]
     assert [o["rejection_reason"] for o in rejected] == ["Bahan habis"]
     assert client.get(f"{API}/orders/me", headers=login(client, *RAFAEL)).json() == []
 
@@ -140,15 +144,15 @@ def _place_order(client, items, buyer=DAFFA):
     return response.json()["id"]
 
 
-def test_confirm_deducts_stock_and_finalizes(client):
+def test_confirm_starts_cooking_and_deducts_stock(client):
     order_id = _place_order(client, [(MIE_AYAM, 3), (ES_TEH, 2)])
     seller = login(client, *GAPURA)
 
     response = client.post(f"{API}/seller/orders/{order_id}/confirm", headers=seller)
 
     assert response.status_code == 200
-    assert response.json()["status"] == "DIKONFIRMASI"
-    assert response.json()["resolved_at"] is not None
+    assert response.json()["status"] == "SEDANG_DIMASAK"
+    assert response.json()["resolved_at"] is None
     assert _menu_stock(client, seller, MIE_AYAM) == 22
     assert _menu_stock(client, seller, ES_TEH) == 48
 
@@ -156,6 +160,33 @@ def test_confirm_deducts_stock_and_finalizes(client):
     reject_after = client.post(f"{API}/seller/orders/{order_id}/reject", headers=seller, json={"reason": "x"})
     assert again.status_code == reject_after.status_code == 409
     assert again.json()["detail"]["code"] == "INVALID_ORDER_STATE"
+
+
+def test_order_flow_from_cooking_to_ready_to_complete(client):
+    order_id = _place_order(client, [(MIE_AYAM, 1)])
+    seller = login(client, *GAPURA)
+    assert client.post(f"{API}/seller/orders/{order_id}/confirm", headers=seller).status_code == 200
+
+    ready = client.post(f"{API}/seller/orders/{order_id}/ready", headers=seller)
+    complete = client.post(f"{API}/seller/orders/{order_id}/complete", headers=seller)
+
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "SIAP_DIAMBIL"
+    assert ready.json()["resolved_at"] is None
+    assert complete.status_code == 200
+    assert complete.json()["status"] == "SELESAI"
+    assert complete.json()["resolved_at"] is not None
+    # Pesanan yang sudah selesai tidak bisa diproses lagi
+    assert client.post(f"{API}/seller/orders/{order_id}/ready", headers=seller).status_code == 409
+    assert client.post(f"{API}/seller/orders/{order_id}/complete", headers=seller).status_code == 409
+
+
+def test_ready_and_complete_require_previous_state(client):
+    order_id = _place_order(client, [(MIE_AYAM, 1)])
+    seller = login(client, *GAPURA)
+
+    assert client.post(f"{API}/seller/orders/{order_id}/ready", headers=seller).status_code == 409
+    assert client.post(f"{API}/seller/orders/{order_id}/complete", headers=seller).status_code == 409
 
 
 def test_reject_keeps_stock(client):
@@ -193,6 +224,8 @@ def test_seller_cannot_touch_other_stall_orders(client):
 
     assert client.post(f"{API}/seller/orders/{order_id}/confirm", headers=other).status_code == 404
     assert client.post(f"{API}/seller/orders/{order_id}/reject", headers=other, json={"reason": "x"}).status_code == 404
+    assert client.post(f"{API}/seller/orders/{order_id}/ready", headers=other).status_code == 404
+    assert client.post(f"{API}/seller/orders/{order_id}/complete", headers=other).status_code == 404
     assert order_id not in [o["id"] for o in client.get(f"{API}/seller/orders", headers=other).json()]
 
 
@@ -201,8 +234,11 @@ def test_seller_orders_status_filter(client):
     seller = login(client, *GAPURA)
 
     waiting = client.get(f"{API}/seller/orders", headers=seller, params={"status": "MENUNGGU"}).json()
-
     assert [o["id"] for o in waiting] == [order_id]
+
+    client.post(f"{API}/seller/orders/{order_id}/confirm", headers=seller)
+    cooking = client.get(f"{API}/seller/orders", headers=seller, params={"status": "SEDANG_DIMASAK"}).json()
+    assert [o["id"] for o in cooking] == [order_id]
 
 
 def test_buyer_cannot_use_seller_endpoints(client):

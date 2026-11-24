@@ -21,7 +21,9 @@ class MenuStatus(StrEnum):
 
 class OrderStatus(StrEnum):
     MENUNGGU = "MENUNGGU"
-    DIKONFIRMASI = "DIKONFIRMASI"
+    SEDANG_DIMASAK = "SEDANG_DIMASAK"
+    SIAP_DIAMBIL = "SIAP_DIAMBIL"
+    SELESAI = "SELESAI"
     DITOLAK = "DITOLAK"
 
 

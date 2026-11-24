@@ -59,6 +59,20 @@ def reject_order(
     return OrderOut.from_order(order)
 
 
+@router.post("/orders/{order_id}/ready", response_model=OrderOut, summary="Tandai pesanan siap diambil")
+def mark_order_ready(order_id: int, db: DbSession, seller: SellerUser, background: BackgroundTasks) -> OrderOut:
+    order = order_service.mark_order_ready(db, _own_order(db, seller, order_id))
+    background.add_task(notification_service.notify_order_ready, order.id)
+    return OrderOut.from_order(order)
+
+
+@router.post("/orders/{order_id}/complete", response_model=OrderOut, summary="Selesaikan pesanan (sudah diambil)")
+def complete_order(order_id: int, db: DbSession, seller: SellerUser, background: BackgroundTasks) -> OrderOut:
+    order = order_service.complete_order(db, _own_order(db, seller, order_id))
+    background.add_task(notification_service.notify_order_completed, order.id)
+    return OrderOut.from_order(order)
+
+
 @router.get("/menus", response_model=list[MenuOut], summary="Semua menu milik saya")
 def list_menus(db: DbSession, seller: SellerUser) -> list[MenuOut]:
     query = select(Menu).where(Menu.vendor_id == _own_vendor(seller).id).order_by(Menu.name)

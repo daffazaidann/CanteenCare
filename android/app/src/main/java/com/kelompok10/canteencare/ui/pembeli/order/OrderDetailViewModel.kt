@@ -35,7 +35,7 @@ class OrderDetailViewModel @Inject constructor(
     }
 
     /**
-     * Dipanggil berkala (tiap 10 detik) selama status masih MENUNGGU.
+     * Dipanggil berkala (tiap 10 detik) selama status masih aktif.
      * Data lama tetap tampil selama memuat, jadi layar tidak berkedip.
      */
     suspend fun refresh() = fetch()

@@ -124,15 +124,15 @@ def list_orders(
     return list(db.scalars(query))
 
 
-def _ensure_waiting(order: Order) -> None:
-    # MENUNGGU hanya bisa berpindah satu kali; DIKONFIRMASI dan DITOLAK adalah status akhir
-    if order.status != OrderStatus.MENUNGGU:
-        raise AppError(409, "INVALID_ORDER_STATE", f"Pesanan {order.order_number} sudah berstatus {order.status}.")
+def _ensure_status(order: Order, *allowed: OrderStatus) -> None:
+    # Setiap transisi hanya boleh dari status tertentu, supaya pesanan tidak melompat tahap.
+    if order.status not in allowed:
+        raise AppError(409, "INVALID_ORDER_STATE", f"Pesanan {order.order_number} berstatus {order.status}.")
 
 
 def confirm_order(db: Session, order: Order) -> Order:
-    """MENUNGGU → DIKONFIRMASI sambil mengurangi stok semua item dalam satu transaksi."""
-    _ensure_waiting(order)
+    """MENUNGGU → SEDANG_DIMASAK sambil mengurangi stok semua item dalam satu transaksi."""
+    _ensure_status(order, OrderStatus.MENUNGGU)
     for item in order.items:
         # UPDATE bersyarat: stok hanya dikurangi jika masih cukup. Ini aman meskipun
         # ada dua konfirmasi yang berjalan bersamaan.
@@ -146,16 +146,33 @@ def confirm_order(db: Session, order: Order) -> Order:
             db.rollback()
             raise _insufficient_stock(db.get(Menu, item.menu_id))
 
-    order.status = OrderStatus.DIKONFIRMASI
-    order.resolved_at = utcnow()
+    order.status = OrderStatus.SEDANG_DIMASAK
+    # resolved_at baru diisi saat pesanan benar-benar selesai atau ditolak.
     db.commit()
     db.expire_all()  # muat ulang stok menu terbaru dari database
     return order
 
 
+def mark_order_ready(db: Session, order: Order) -> Order:
+    """SEDANG_DIMASAK → SIAP_DIAMBIL. Stok tidak berubah."""
+    _ensure_status(order, OrderStatus.SEDANG_DIMASAK)
+    order.status = OrderStatus.SIAP_DIAMBIL
+    db.commit()
+    return order
+
+
+def complete_order(db: Session, order: Order) -> Order:
+    """SIAP_DIAMBIL → SELESAI. Pesanan masuk riwayat dan resolved_at diisi."""
+    _ensure_status(order, OrderStatus.SIAP_DIAMBIL)
+    order.status = OrderStatus.SELESAI
+    order.resolved_at = utcnow()
+    db.commit()
+    return order
+
+
 def reject_order(db: Session, order: Order, reason: str) -> Order:
-    """MENUNGGU → DITOLAK. Stok tidak berubah."""
-    _ensure_waiting(order)
+    """MENUNGGU → DITOLAK. Stok tidak berubah dan pesanan masuk riwayat."""
+    _ensure_status(order, OrderStatus.MENUNGGU)
     order.status = OrderStatus.DITOLAK
     order.rejection_reason = reason
     order.resolved_at = utcnow()

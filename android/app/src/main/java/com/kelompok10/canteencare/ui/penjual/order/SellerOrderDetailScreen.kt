@@ -80,6 +80,8 @@ fun SellerOrderDetailRoute(
         onRetry = viewModel::load,
         onConfirm = viewModel::confirm,
         onRejectClick = viewModel::onRejectClick,
+        onReady = viewModel::markReady,
+        onCompleteClick = viewModel::onCompleteClick,
     )
 
     if (uiState.showRejectDialog) {
@@ -88,6 +90,13 @@ fun SellerOrderDetailRoute(
             onReasonChange = viewModel::onRejectReasonChange,
             onConfirm = viewModel::reject,
             onDismiss = viewModel::onDismissRejectDialog,
+        )
+    }
+
+    if (uiState.showCompleteDialog) {
+        CompleteDialog(
+            onConfirm = viewModel::complete,
+            onDismiss = viewModel::onDismissCompleteDialog,
         )
     }
 }
@@ -101,6 +110,8 @@ fun SellerOrderDetailScreen(
     onRetry: () -> Unit,
     onConfirm: () -> Unit,
     onRejectClick: () -> Unit,
+    onReady: () -> Unit,
+    onCompleteClick: () -> Unit,
 ) {
     val order = uiState.order
     Scaffold(
@@ -115,9 +126,20 @@ fun SellerOrderDetailScreen(
             )
         },
         bottomBar = {
-            // Tombol aksi hanya untuk pesanan yang masih menunggu
-            if (order?.status == OrderStatus.MENUNGGU) {
-                ActionBar(uiState.isProcessing, onConfirm, onRejectClick)
+            // Tombol aksi mengikuti tahap pesanan
+            when (order?.status) {
+                OrderStatus.MENUNGGU -> WaitingActionBar(uiState.isProcessing, onConfirm, onRejectClick)
+                OrderStatus.SEDANG_DIMASAK -> SingleActionBar(
+                    label = "Tandai Siap Diambil",
+                    isProcessing = uiState.isProcessing,
+                    onClick = onReady,
+                )
+                OrderStatus.SIAP_DIAMBIL -> SingleActionBar(
+                    label = "Selesaikan Pesanan",
+                    isProcessing = uiState.isProcessing,
+                    onClick = onCompleteClick,
+                )
+                else -> Unit
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -138,11 +160,27 @@ fun SellerOrderDetailScreen(
                     Text(order.orderNumber, style = MaterialTheme.typography.headlineSmall)
                     InfoLine("Pembeli", order.buyerName)
                     InfoLine("Dipesan", WibTime.formatDateTime(order.createdAt))
+                    order.resolvedAt?.let {
+                        InfoLine(
+                            if (order.status == OrderStatus.DITOLAK) "Ditolak" else "Selesai",
+                            WibTime.formatDateTime(it),
+                        )
+                    }
                     InfoLine("Pembayaran", order.paymentMethod.label)
                 }
                 order.note?.let { NoticeCard("Catatan pembeli: $it") }
-                if (order.status == OrderStatus.DITOLAK) {
-                    NoticeCard("Ditolak: ${order.rejectionReason ?: "-"}", isError = true)
+                when (order.status) {
+                    OrderStatus.SEDANG_DIMASAK -> NoticeCard(
+                        "Pesanan sedang dimasak. Tekan Tandai Siap Diambil setelah masakan selesai."
+                    )
+                    OrderStatus.SIAP_DIAMBIL -> NoticeCard(
+                        "Pesanan siap. Tekan Selesaikan Pesanan setelah pembeli mengambil pesanan."
+                    )
+                    OrderStatus.SELESAI -> NoticeCard("Pesanan selesai dan sudah masuk riwayat.")
+                    OrderStatus.DITOLAK -> NoticeCard(
+                        "Ditolak: ${order.rejectionReason ?: "-"}", isError = true
+                    )
+                    else -> Unit
                 }
                 OrderItemsCard(order.items, uiState.totalPrice)
             }
@@ -151,7 +189,7 @@ fun SellerOrderDetailScreen(
 }
 
 @Composable
-private fun ActionBar(isProcessing: Boolean, onConfirm: () -> Unit, onReject: () -> Unit) {
+private fun WaitingActionBar(isProcessing: Boolean, onConfirm: () -> Unit, onReject: () -> Unit) {
     Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
         Row(
             modifier = Modifier
@@ -180,11 +218,46 @@ private fun ActionBar(isProcessing: Boolean, onConfirm: () -> Unit, onReject: ()
                 if (isProcessing) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Konfirmasi")
+                    Text("Terima")
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SingleActionBar(label: String, isProcessing: Boolean, onClick: () -> Unit) {
+    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+        Button(
+            onClick = onClick,
+            enabled = !isProcessing,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp)
+                .height(52.dp),
+        ) {
+            if (isProcessing) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text(label)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompleteDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Selesaikan pesanan?") },
+        text = {
+            Text("Pastikan pembeli sudah mengambil pesanan. Pesanan akan dipindahkan ke Riwayat.")
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Selesaikan") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+    )
 }
 
 @Composable
@@ -231,6 +304,7 @@ private fun SellerOrderDetailScreenPreview() {
             ),
             snackbarHostState = SnackbarHostState(),
             onBack = {}, onRetry = {}, onConfirm = {}, onRejectClick = {},
+            onReady = {}, onCompleteClick = {},
         )
     }
 }

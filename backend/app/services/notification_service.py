@@ -91,14 +91,36 @@ def notify_new_order(order_id: int) -> None:
 
 
 def notify_order_confirmed(order_id: int) -> None:
-    """Pesanan dikonfirmasi → pembeli."""
+    """Pesanan diterima penjual dan mulai dimasak → pembeli."""
     with SessionLocal() as db:
         order = db.get(Order, order_id)
         if order is None:
             return
         target_id = order.buyer_id
-        body = f"Pesanan {order.order_number} dikonfirmasi. Silakan ambil di {order.vendor.name}."
-    _send(target_id, "Pesanan Dikonfirmasi", body, {"type": TYPE_ORDER_STATUS, "order_id": str(order_id)})
+        body = f"Pesanan {order.order_number} diterima dan sedang dimasak di {order.vendor.name}."
+    _send(target_id, "Pesanan Sedang Dimasak", body, {"type": TYPE_ORDER_STATUS, "order_id": str(order_id)})
+
+
+def notify_order_ready(order_id: int) -> None:
+    """Pesanan selesai dimasak dan siap diambil → pembeli."""
+    with SessionLocal() as db:
+        order = db.get(Order, order_id)
+        if order is None:
+            return
+        target_id = order.buyer_id
+        body = f"Pesanan {order.order_number} siap diambil di {order.vendor.name}."
+    _send(target_id, "Pesanan Siap Diambil", body, {"type": TYPE_ORDER_STATUS, "order_id": str(order_id)})
+
+
+def notify_order_completed(order_id: int) -> None:
+    """Pesanan sudah diambil dan transaksi selesai → pembeli."""
+    with SessionLocal() as db:
+        order = db.get(Order, order_id)
+        if order is None:
+            return
+        target_id = order.buyer_id
+        body = f"Pesanan {order.order_number} selesai. Terima kasih!"
+    _send(target_id, "Pesanan Selesai", body, {"type": TYPE_ORDER_STATUS, "order_id": str(order_id)})
 
 
 def notify_order_rejected(order_id: int) -> None:

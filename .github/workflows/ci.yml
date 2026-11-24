@@ -1,0 +1,200 @@
+name: CI Smoke Test
+
+on:
+  pull_request:
+    # Hanya jalankan CI jika ada perubahan kode backend atau android.
+    # Perubahan hanya di docs/* tidak memicu workflow (diabaikan).
+    paths:
+      - 'backend/**'
+      - 'android/**'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target smoke test manual'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - android
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paths-filter:
+    name: Deteksi path yang berubah
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            android:
+              - 'android/**'
+
+  backend:
+    name: Backend smoke test
+    needs: paths-filter
+    if: >
+      always() && (
+        needs.paths-filter.outputs.backend == 'true' ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'backend'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Nilai khusus CI. Bukan secret produksi dan tidak dipakai di luar runner.
+      SECRET_KEY: ci-secret-key-yang-cukup-panjang-untuk-hs256
+      DATABASE_URL: sqlite:///./ci-canteencare.db
+      # Sengaja menunjuk ke file yang tidak ada agar Firebase no-op tanpa secret.
+      FIREBASE_CREDENTIALS: ci-no-firebase.json
+      BCRYPT_ROUNDS: "4"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run backend tests
+        run: python -m pytest -q
+
+      - name: Start backend and verify HTTP + database
+        run: |
+          set -euo pipefail
+
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/openapi.json > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Backend tidak siap dalam 30 detik."
+            cat uvicorn.log
+            exit 1
+          fi
+
+          # Login sebagai admin untuk mendapatkan access token (vendors membutuhkan autentikasi)
+          TOKEN=$(curl --silent --show-error -X POST http://127.0.0.1:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@canteencare.id","password":"admin123"}' \
+            | python -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')
+
+          # Endpoint ini membaca database dan membutuhkan autentikasi,
+          # jadi sekaligus membuktikan seed berhasil dan token valid.
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/vendors \
+            -H "Authorization: Bearer $TOKEN" \
+            | python -c 'import json, sys; data = json.load(sys.stdin); assert data, "seed vendor kosong"; print(f"OK: {len(data)} vendor dari seed")'
+
+          if grep -q "Firebase siap" uvicorn.log; then
+            echo "Firebase aktif padahal CI tidak memakai Firebase."
+            exit 1
+          fi
+
+          grep -q "Notifikasi dinonaktifkan" uvicorn.log
+          echo "Backend up, database seed terbaca, dan Firebase nonaktif."
+
+  android:
+    name: Android build smoke test
+    needs: paths-filter
+    if: >
+      always() && (
+        needs.paths-filter.outputs.android == 'true' ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'android'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install Android SDK packages
+        run: |
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      # google-services.json asli tidak boleh ada di GitHub, padahal plugin Firebase
+      # membutuhkannya saat build. CI memakai file dummy (bukan kunci asli) hanya agar build jalan.
+      - name: Create dummy google-services.json
+        run: |
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "canteencare-ci",
+              "storage_bucket": "canteencare-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": { "package_name": "com.kelompok10.canteencare" }
+                },
+                "oauth_client": [],
+                "api_key": [{ "current_key": "ci-dummy-api-key" }],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+
+      - name: Run Android unit tests
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: Verify APK exists
+        run: test -f app/build/outputs/apk/debug/app-debug.apk
