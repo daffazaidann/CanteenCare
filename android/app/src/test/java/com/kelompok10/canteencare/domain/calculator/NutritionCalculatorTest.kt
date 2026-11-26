@@ -1,8 +1,13 @@
 package com.kelompok10.canteencare.domain.calculator
 
 import com.kelompok10.canteencare.domain.model.CartItem
+import com.kelompok10.canteencare.domain.model.Nutrient
+import com.kelompok10.canteencare.domain.model.NutrientStatus
 import com.kelompok10.canteencare.domain.model.Nutrition
+import com.kelompok10.canteencare.domain.model.NutritionTarget
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NutritionCalculatorTest {
@@ -80,6 +85,58 @@ class NutritionCalculatorTest {
     fun `item dengan jumlah nol tidak menambah total gizi`() {
         val total = NutritionCalculator.calculateOrderNutrition(listOf(cartItem(1, 20000, 0, mieAyamSolo)))
         assertEquals(Nutrition.ZERO, total)
+    }
+
+    // ---------- Gizi per baris ----------
+
+    @Test
+    fun `gizi satu baris adalah gizi per porsi dikali jumlah`() {
+        val baris = NutritionCalculator.calculateItemNutrition(cartItem(4, 4000, 2, esTehManis))
+
+        assertEquals(240.0, baris.calories, DELTA)
+        assertEquals(60.0, baris.carbs, DELTA)
+        assertEquals(20.0, baris.salt, DELTA)
+        assertEquals(60.0, baris.sugar, DELTA)
+    }
+
+    // ---------- Dampak terhadap target harian ----------
+
+    @Test
+    fun `dampak pesanan menghitung persen target dan progres setelah pesan`() {
+        val order = NutritionCalculator.calculateOrderNutrition(pesananContoh) // 890 kkal, gula 66 g
+        val consumedToday = Nutrition(500.0, 60.0, 20.0, 15.0, 200.0, 10.0)
+
+        val impact = NutritionCalculator.calculateOrderImpact(order, consumedToday, NutritionTarget.DEFAULT)
+            .associateBy { it.nutrient }
+
+        assertEquals(6, impact.size)
+        // 890 / 2150 = 41,4%; setelah pesan (500 + 890) / 2150 = 64,7%
+        assertEquals(41.4, impact.getValue(Nutrient.CALORIES).orderPercentOfTarget, DELTA)
+        assertEquals(64.7, impact.getValue(Nutrient.CALORIES).projected.percentage, DELTA)
+        assertEquals(NutrientStatus.KURANG, impact.getValue(Nutrient.CALORIES).projected.status)
+        assertFalse(impact.getValue(Nutrient.CALORIES).exceedsTarget)
+    }
+
+    @Test
+    fun `dampak menandai gizi batas yang terlewati karena pesanan`() {
+        val order = NutritionCalculator.calculateOrderNutrition(pesananContoh) // gula 66 g > batas 50 g
+        val impact = NutritionCalculator.calculateOrderImpact(order, Nutrition.ZERO, NutritionTarget.DEFAULT)
+            .associateBy { it.nutrient }
+
+        val gula = impact.getValue(Nutrient.SUGAR)
+        assertTrue(gula.exceedsTarget)
+        assertEquals(NutrientStatus.MELEBIHI_BATAS, gula.projected.status)
+        assertEquals(16.0, gula.projected.excess, DELTA)
+    }
+
+    @Test
+    fun `keranjang kosong tidak memicu peringatan`() {
+        val impact = NutritionCalculator.calculateOrderImpact(
+            Nutrition.ZERO,
+            Nutrition(0.0, 0.0, 0.0, 0.0, 0.0, 60.0), // sudah melebihi batas gula dari pesanan lain
+            NutritionTarget.DEFAULT,
+        )
+        assertTrue(impact.none { it.exceedsTarget })
     }
 
     private companion object {

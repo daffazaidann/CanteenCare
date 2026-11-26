@@ -56,6 +56,21 @@ enum class NutrientStatus(val label: String, val tone: StatusTone) {
 /** Hijau = baik, kuning = perlu perhatian, merah = berlebih/melewati batas. */
 enum class StatusTone { GOOD, WARNING, DANGER }
 
+/**
+ * Dampak satu pesanan terhadap target harian untuk satu jenis gizi.
+ * [orderPercentOfTarget] = porsi pesanan ini terhadap target; [projected] = progres harian setelah pesanan ini ditambahkan ke asupan hari ini.
+ */
+data class NutrientImpact(
+    val nutrient: Nutrient,
+    val orderAmount: Double,
+    /** Persen pesanan thdp target harian, dibulat ke satu desimal */
+    val orderPercentOfTarget: Double,
+    val projected: NutrientProgress,
+) {
+    /** True jika pesanan ini membuat/memperparah asupan harian melewati target/batas. */
+    val exceedsTarget: Boolean get() = orderAmount > 0 && projected.excess > 0
+}
+
 /** Hasil perbandingan asupan hari ini dengan target untuk satu jenis gizi. */
 data class NutrientProgress(
     val nutrient: Nutrient,

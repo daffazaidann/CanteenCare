@@ -2,6 +2,7 @@ package com.kelompok10.canteencare.domain.calculator
 
 import com.kelompok10.canteencare.domain.model.LineItem
 import com.kelompok10.canteencare.domain.model.Nutrient
+import com.kelompok10.canteencare.domain.model.NutrientImpact
 import com.kelompok10.canteencare.domain.model.NutrientKind
 import com.kelompok10.canteencare.domain.model.NutrientProgress
 import com.kelompok10.canteencare.domain.model.NutrientStatus
@@ -38,14 +39,24 @@ object NutritionCalculator {
      * Untuk setiap jenis gizi: Σ (gizi per porsi × jumlah porsi).
      * Contoh: 1 Mie Ayam (650 kkal) + 2 Es Teh (120 kkal) = 650 + 2 × 120 = 890 kkal.
      */
-    fun calculateOrderNutrition(items: List<LineItem>): Nutrition = Nutrition(
-        calories = items.sumOf { it.nutrition.calories * it.quantity },
-        carbs = items.sumOf { it.nutrition.carbs * it.quantity },
-        protein = items.sumOf { it.nutrition.protein * it.quantity },
-        fat = items.sumOf { it.nutrition.fat * it.quantity },
-        salt = items.sumOf { it.nutrition.salt * it.quantity },
-        sugar = items.sumOf { it.nutrition.sugar * it.quantity },
-    )
+    fun calculateOrderNutrition(items: List<LineItem>): Nutrition =
+        items.fold(Nutrition.ZERO) { total, item -> total + calculateItemNutrition(item) }
+    fun calculateItemNutrition(item: LineItem): Nutrition = item.nutrition * item.quantity
+    fun calculateOrderImpact(
+        order: Nutrition,
+        consumedToday: Nutrition,
+        target: NutritionTarget,
+    ): List<NutrientImpact> =
+        calculateProgress(consumedToday + order, target).map { projected ->
+            val amount = order.valueOf(projected.nutrient)
+            val goal = target.valueOf(projected.nutrient)
+            NutrientImpact(
+                nutrient = projected.nutrient,
+                orderAmount = amount,
+                orderPercentOfTarget = if (goal > 0) roundToOneDecimal(amount / goal * 100) else 0.0,
+                projected = projected,
+            )
+        }
 
     /**
      * Fungsi 3, langkah 1 — Total asupan gizi dari daftar pesanan.

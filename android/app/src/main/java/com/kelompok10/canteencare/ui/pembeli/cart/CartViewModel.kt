@@ -4,12 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kelompok10.canteencare.core.network.ApiResult
 import com.kelompok10.canteencare.data.repository.CartRepository
+import com.kelompok10.canteencare.core.util.WibTime
 import com.kelompok10.canteencare.data.repository.CatalogRepository
+import com.kelompok10.canteencare.data.repository.NutritionRepository
 import com.kelompok10.canteencare.data.repository.OrderRepository
 import com.kelompok10.canteencare.domain.calculator.NutritionCalculator
 import com.kelompok10.canteencare.domain.model.CartItem
+import com.kelompok10.canteencare.domain.model.Nutrition
+import com.kelompok10.canteencare.domain.model.NutritionTarget
 import com.kelompok10.canteencare.domain.model.PaymentMethod
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +29,14 @@ class CartViewModel @Inject constructor(
     private val cartRepository: CartRepository,
     private val orderRepository: OrderRepository,
     private val catalogRepository: CatalogRepository,
+    private val nutritionRepository: NutritionRepository,
 ) : ViewModel() {
+
+    /** Target harian dan asupan hari ini, dipakai untuk membandingkan dengan isi keranjang. */
+    private data class DailyContext(val target: NutritionTarget, val consumed: Nutrition)
+
+    /** Null selama belum termuat atau gagal dimuat (misalnya offline); keranjang tetap bisa dipakai. */
+    private val daily = MutableStateFlow<DailyContext?>(null)
 
     /** Isian form yang hanya ada di layar ini: metode bayar, catatan, status kirim. */
     private data class FormState(
@@ -42,12 +54,16 @@ class CartViewModel @Inject constructor(
      * setiap kali isi keranjang di Room berubah (misalnya jumlah ditambah), Flow memancarkan
      * daftar item baru, lalu total harga dan total gizi langsung dihitung ulang oleh NutritionCalculator.
      */
-    val uiState: StateFlow<CartUiState> = combine(cartRepository.observeCart(), form) { items, form ->
+    val uiState: StateFlow<CartUiState> = combine(cartRepository.observeCart(), form, daily) { items, form, daily ->
+        val totalNutrition = NutritionCalculator.calculateOrderNutrition(items)
         CartUiState(
             isLoaded = true,
             items = items,
             totalPrice = NutritionCalculator.calculateTotalPrice(items),
-            totalNutrition = NutritionCalculator.calculateOrderNutrition(items),
+            totalNutrition = totalNutrition,
+            dailyImpact = daily?.let {
+                NutritionCalculator.calculateOrderImpact(totalNutrition, it.consumed, it.target)
+            }.orEmpty(),
             paymentMethod = form.paymentMethod,
             note = form.note,
             isPlacingOrder = form.isPlacingOrder,
@@ -55,6 +71,22 @@ class CartViewModel @Inject constructor(
             placedOrderId = form.placedOrderId,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CartUiState())
+
+    init {
+        loadDailyContext()
+    }
+
+    private fun loadDailyContext() {
+        viewModelScope.launch {
+            val targetCall = async { nutritionRepository.getTarget() }
+            val ordersCall = async { nutritionRepository.getOrdersForDate(WibTime.today()) }
+            val target = targetCall.await()
+            val orders = ordersCall.await()
+            if (target is ApiResult.Success && orders is ApiResult.Success) {
+                daily.value = DailyContext(target.data, NutritionCalculator.sumNutrition(orders.data))
+            }
+        }
+    }
 
     /** Tambah satu porsi, maksimal sebanyak stok. */
     fun onIncrease(item: CartItem) {

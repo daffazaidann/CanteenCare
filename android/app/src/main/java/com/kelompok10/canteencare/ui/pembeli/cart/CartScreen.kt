@@ -1,5 +1,6 @@
 package com.kelompok10.canteencare.ui.pembeli.cart
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,11 +51,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kelompok10.canteencare.core.util.Formatters
 import com.kelompok10.canteencare.domain.calculator.NutritionCalculator
 import com.kelompok10.canteencare.domain.model.CartItem
+import com.kelompok10.canteencare.domain.model.Nutrient
 import com.kelompok10.canteencare.domain.model.Nutrition
+import com.kelompok10.canteencare.domain.model.NutritionTarget
 import com.kelompok10.canteencare.domain.model.PaymentMethod
 import com.kelompok10.canteencare.ui.components.EmptyView
 import com.kelompok10.canteencare.ui.components.LoadingView
-import com.kelompok10.canteencare.ui.components.NutritionTable
 import com.kelompok10.canteencare.ui.components.QuantityStepper
 import com.kelompok10.canteencare.ui.theme.CanteenCareTheme
 import kotlinx.coroutines.launch
@@ -163,7 +165,7 @@ fun CartScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
-                    NutritionTable(uiState.totalNutrition)
+                    CartNutritionSummary(uiState.totalNutrition, uiState.dailyImpact)
                 }
                 item {
                     SectionTitle("Metode Pembayaran")
@@ -214,6 +216,7 @@ private fun CartItemCard(
                     Icon(Icons.Filled.Delete, contentDescription = "Hapus ${item.name}", tint = MaterialTheme.colorScheme.error)
                 }
             }
+            ItemNutrition(item)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -233,6 +236,40 @@ private fun CartItemCard(
             }
         }
     }
+}
+
+@Composable
+private fun ItemNutrition(item: CartItem) {
+    val nutrition = NutritionCalculator.calculateItemNutrition(item)
+    Column(
+        modifier = Modifier
+            .padding(end = 8.dp, top = 4.dp, bottom = 8.dp)
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            "Gizi untuk ${item.quantity} porsi",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            Nutrient.entries.joinToString(" · ") { nutrient ->
+                "${shortLabel(nutrient)} ${Formatters.nutrient(nutrition.valueOf(nutrient), nutrient.unit)}"
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+private fun shortLabel(nutrient: Nutrient): String = when (nutrient) {
+    Nutrient.CALORIES -> "Kalori"
+    Nutrient.CARBS -> "Karbo"
+    Nutrient.PROTEIN -> "Protein"
+    Nutrient.FAT -> "Lemak"
+    Nutrient.SALT -> "Garam"
+    Nutrient.SUGAR -> "Gula"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -283,7 +320,7 @@ private fun CheckoutBar(totalPrice: Int, isPlacingOrder: Boolean, onPlaceOrder: 
     }
 }
 
-@Preview(showBackground = true, heightDp = 1100)
+@Preview(showBackground = true, heightDp = 1800)
 @Composable
 private fun CartScreenPreview() {
     val items = listOf(
@@ -297,6 +334,11 @@ private fun CartScreenPreview() {
                 items = items,
                 totalPrice = NutritionCalculator.calculateTotalPrice(items),
                 totalNutrition = NutritionCalculator.calculateOrderNutrition(items),
+                dailyImpact = NutritionCalculator.calculateOrderImpact(
+                    order = NutritionCalculator.calculateOrderNutrition(items),
+                    consumedToday = Nutrition(500.0, 60.0, 20.0, 15.0, 200.0, 10.0),
+                    target = NutritionTarget.DEFAULT,
+                ),
                 paymentMethod = PaymentMethod.QRIS,
             ),
             snackbarHostState = SnackbarHostState(),

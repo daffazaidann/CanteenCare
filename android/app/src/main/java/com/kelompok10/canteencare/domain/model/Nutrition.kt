@@ -22,6 +22,24 @@ data class Nutrition(
         Nutrient.SUGAR -> sugar
     }
 
+    operator fun plus(other: Nutrition) = Nutrition(
+        calories = calories + other.calories,
+        carbs = carbs + other.carbs,
+        protein = protein + other.protein,
+        fat = fat + other.fat,
+        salt = salt + other.salt,
+        sugar = sugar + other.sugar,
+    )
+
+    operator fun times(factor: Int) = Nutrition(
+        calories = calories * factor,
+        carbs = carbs * factor,
+        protein = protein * factor,
+        fat = fat * factor,
+        salt = salt * factor,
+        sugar = sugar * factor,
+    )
+
     companion object {
         val ZERO = Nutrition(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     }
