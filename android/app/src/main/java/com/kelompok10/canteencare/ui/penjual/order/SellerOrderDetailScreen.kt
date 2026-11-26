@@ -29,7 +29,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +46,7 @@ import com.kelompok10.canteencare.domain.model.Order
 import com.kelompok10.canteencare.domain.model.OrderItem
 import com.kelompok10.canteencare.domain.model.OrderStatus
 import com.kelompok10.canteencare.domain.model.PaymentMethod
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import com.kelompok10.canteencare.ui.components.ErrorView
 import com.kelompok10.canteencare.ui.components.InfoLine
 import com.kelompok10.canteencare.ui.components.LoadingView
@@ -116,7 +116,7 @@ fun SellerOrderDetailScreen(
     val order = uiState.order
     Scaffold(
         topBar = {
-            TopAppBar(
+            CanteenTopAppBar(
                 title = { Text("Detail Pesanan") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

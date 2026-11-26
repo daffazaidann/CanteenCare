@@ -27,7 +27,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kelompok10.canteencare.domain.model.MenuCategory
 import com.kelompok10.canteencare.domain.model.Nutrient
 import com.kelompok10.canteencare.domain.validator.MenuField
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import com.kelompok10.canteencare.ui.components.FormTextField
 import com.kelompok10.canteencare.ui.components.NoticeCard
 import com.kelompok10.canteencare.ui.theme.CanteenCareTheme
@@ -86,7 +86,7 @@ fun NewMenuScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            CanteenTopAppBar(
                 title = { Text("Menu Baru") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

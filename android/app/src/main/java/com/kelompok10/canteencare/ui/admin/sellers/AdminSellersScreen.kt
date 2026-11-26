@@ -20,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +31,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kelompok10.canteencare.domain.model.Seller
 import com.kelompok10.canteencare.domain.model.Vendor
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import com.kelompok10.canteencare.ui.components.EmptyView
 import com.kelompok10.canteencare.ui.components.ErrorView
 import com.kelompok10.canteencare.ui.components.FoodImage
@@ -56,7 +56,7 @@ fun AdminSellersRoute(
 @Composable
 fun AdminSellersScreen(uiState: AdminSellersUiState, onRetry: () -> Unit, onAddSeller: () -> Unit) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Penjual & Stan") }) },
+        topBar = { CanteenTopAppBar(title = "Penjual & Stan") },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddSeller,

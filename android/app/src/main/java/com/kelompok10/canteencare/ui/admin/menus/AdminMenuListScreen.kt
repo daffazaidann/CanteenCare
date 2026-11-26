@@ -20,7 +20,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +35,7 @@ import com.kelompok10.canteencare.domain.model.Menu
 import com.kelompok10.canteencare.domain.model.MenuCategory
 import com.kelompok10.canteencare.domain.model.MenuStatus
 import com.kelompok10.canteencare.domain.model.Nutrition
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import com.kelompok10.canteencare.ui.components.EmptyView
 import com.kelompok10.canteencare.ui.components.ErrorView
 import com.kelompok10.canteencare.ui.components.FoodImage
@@ -104,7 +104,7 @@ fun AdminMenuListScreen(
     onRetry: () -> Unit,
     onMenuClick: (Int) -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text(title) }) }) { padding ->
+    Scaffold(topBar = { CanteenTopAppBar(title = title) }) { padding ->
         Column(
             Modifier
                 .padding(padding)

@@ -22,7 +22,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -81,7 +81,7 @@ fun HistoryScreen(
     onRetry: () -> Unit,
     onOrderClick: (Int) -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text("Pesanan Saya") }) }) { padding ->
+    Scaffold(topBar = { CanteenTopAppBar(title = "Pesanan Saya") }) { padding ->
         Column(
             Modifier
                 .padding(padding)

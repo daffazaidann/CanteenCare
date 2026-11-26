@@ -36,7 +36,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +54,7 @@ import com.kelompok10.canteencare.domain.model.MenuStatus
 import com.kelompok10.canteencare.domain.model.Nutrient
 import com.kelompok10.canteencare.domain.model.Nutrition
 import com.kelompok10.canteencare.domain.validator.MenuField
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import com.kelompok10.canteencare.ui.components.ErrorView
 import com.kelompok10.canteencare.ui.components.FormTextField
 import com.kelompok10.canteencare.ui.components.LoadingView
@@ -135,8 +135,8 @@ fun AdminMenuDetailScreen(
     val menu = uiState.menu
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Detail Menu") },
+            CanteenTopAppBar(
+                title = "Detail Menu",
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")

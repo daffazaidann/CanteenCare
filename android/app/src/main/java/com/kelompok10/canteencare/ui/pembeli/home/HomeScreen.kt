@@ -33,7 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.kelompok10.canteencare.ui.components.CanteenTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -90,7 +90,7 @@ fun HomeScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            CanteenTopAppBar(
                 title = {
                     Column {
                         Text("Selamat datang, ${uiState.userName}", maxLines = 1, overflow = TextOverflow.Ellipsis)
